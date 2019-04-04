@@ -1,0 +1,48 @@
+Req -> 100 e conns -> 1
+Time:  0.001616
+Conns: 1
+Reqs:  100
+Failed: 0
+
+
+Req -> 1000 e conns -> 1
+Time:  0.013070
+Conns: 1
+Reqs:  1000
+Failed: 0
+
+Req -> 10000 e conns -> 1
+Time:  0.105178
+Conns: 1
+Reqs:  10000
+Failed: 0
+
+Req -> 100000 e conns -> 1
+Time:  1.034793
+Conns: 1
+Reqs:  100000
+Failed: 0
+
+Req -> 1 e conns -> 100
+Time:  0.005162
+Conns: 100
+Reqs:  100
+Failed: 0
+
+Req -> 1 e conns -> 1000
+Time:  0.034893
+Conns: 1000
+Reqs:  1000
+Failed: 0
+
+Req -> 1 e conns -> 10000
+Time:  0.310972
+Conns: 10000
+Reqs:  10000
+Failed: 0
+
+Req -> 1 e conns -> 100000
+Time:  109.231351
+Conns: 100000
+Reqs:  100000
+Failed: 43536

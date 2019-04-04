@@ -1,6 +1,6 @@
 socket = require'socket'
 
-port = arg[1] and tonumber(arg[1]) or 1234
+port = arg[1] and tonumber(arg[1]) or 5500
 local datalen = 1024
 local data = string.rep('a', datalen-1) .. '\n'
 local server = assert(socket.bind('*', port))
