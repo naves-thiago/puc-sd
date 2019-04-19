@@ -9,9 +9,9 @@ struct2 = {{name = 'a', type = 'int'},
 }
 
 t = {{{a = 3.5, b = "foo"},      true},
-     {{},                        true},
-     {{a = 4},                   true},
-     {{b = "bar"},               true},
+     {{},                        false},
+     {{a = 4},                   false},
+     {{b = "bar"},               false},
      {{a = 1, b = "foo", c = 9}, true},
      {{a = "asd", b = 3},        false},
      {{a = {}, b = "asd"},       false},
@@ -27,17 +27,20 @@ end
 
 print('----------------------------')
 
-t = {{{a = 3, b = {a = 5, b = "foo"}},     true},
-     {{b = {a = 5, b = "foo"}},            true},
-     {{a = 4},                             true},
-     {{b = {}},                            true},
-     {{b = {a = 5}},                       true},
-     {{b = {b = "bar"}},                   true},
-     {{a = "asd", b = {a = 5, b = "foo"}}, false},
-     {{b = {a = "asd", b = "asd"}},        false},
-     {{b = {a = 1, b = {}}},               false},
-     {{b = {a = {}, b = {}}},              false},
-     {{b = {b = {}}},                      false},
+t = {{{a = 3, b = {a = 5, b = "foo"}},               true},
+     {{a = 3, b = {a = 5, b = "foo", c = 1}},        true},
+     {{a = 3, b = {a = 5, b = "foo", c = 1}, d = 2}, true},
+     {{a = 3, b = {a = 5, b = "foo"}, c = 1},        true},
+     {{b = {a = 5, b = "foo"}},                      false},
+     {{a = 4},                                       false},
+     {{b = {}},                                      false},
+     {{b = {a = 5}},                                 false},
+     {{b = {b = "bar"}},                             false},
+     {{a = "asd", b = {a = 5, b = "foo"}},           false},
+     {{b = {a = "asd", b = "asd"}},                  false},
+     {{b = {a = 1, b = {}}},                         false},
+     {{b = {a = {}, b = {}}},                        false},
+     {{b = {b = {}}},                                false},
 }
 
 for n, case in ipairs(t) do

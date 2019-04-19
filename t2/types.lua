@@ -6,7 +6,7 @@ local types = {string = "string",
 }
 
 local function validate_struct(s, fields)
-	if s == nil then return true end
+	if s == nil then return false end
 	for _, f in ipairs(fields) do
 		local ok, err = module.validate_type(s[f.name], f.type)
 		if not ok then return false, err end
@@ -15,7 +15,6 @@ local function validate_struct(s, fields)
 end
 
 function module.validate_type(value, exptype)
-	if value == nil then return true end
 	if type(exptype) == 'table' then
 		return validate_struct(value, exptype)
 	end
