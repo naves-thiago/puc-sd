@@ -58,6 +58,7 @@ function interface(t)
 	interfaces[t.name] = t.methods
 end
 
+loadfile(idl_file)()
 function create_proxy(hostname, port, interface)
 	local proxy = {_interface_name = interface}
 	for name, def in pairs(interfaces[interface]) do
@@ -92,7 +93,6 @@ function create_proxy(hostname, port, interface)
 		end
 	end
 
-	loadfile(idl_file)()
 	proxy._socket = socket.tcp()
 	assert(proxy._socket:connect(hostname, port))
 	return proxy
