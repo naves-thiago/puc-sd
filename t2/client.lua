@@ -3,7 +3,7 @@ binser = require'binser'
 socket = require'socket'
 mime = require'mime'
 
-idl_file = 'idl.lua'
+idl_file = 'idl1.lua'
 
 function validade_struct(t)
 	if type(t.name) ~= 'string' then return end
@@ -53,11 +53,11 @@ function interface(t)
 	if not validate_interface(t) then
 		error('Invalid interface')
 	end
-	if _interface_name ~= t.name then return
+	if _interface_name ~= t.name then return end
 
 	for name, def in pairs(t.methods) do
 		local params, results = {}, {def.resulttype}
-		for i, arg in ipairs(args) do
+		for i, arg in ipairs(def.args) do
 			if arg.direction == 'in' or arg.direction == 'inout' then
 				table.insert(params, arg.type)
 			else
@@ -93,7 +93,7 @@ function create_proxy(hostname, port, interface)
 
 	proxy._interface_name = interface
 	proxy._structs = {}
-	loadfile(idl_file, 't', proxy)
+	loadfile(idl_file, 't', proxy)()
 	setmetatable(proxy, nil)
 	proxy._socket = socket.tcp()
 	assert(proxy._socket:connect(hostname, port))
