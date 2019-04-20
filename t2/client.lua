@@ -3,6 +3,8 @@ binser = require'binser'
 socket = require'socket'
 mime = require'mime'
 
+idl_file = 'idl.lua'
+
 function validade_struct(t)
 	if type(t.name) ~= 'string' then return end
 	if type(t.fields) ~= 'table' then return end
@@ -36,6 +38,7 @@ function validate_args(recv, expected)
 	if #recv ~= #expected then
 		return false, 'Expected ' .. #expected .. ' args, got ' .. #recv
 	end
+	-- TODO actually validate stuff
 	return true
 end
 
@@ -50,6 +53,7 @@ function interface(t)
 	if not validate_interface(t) then
 		error('Invalid interface')
 	end
+	if _interface_name ~= t.name then return
 
 	for name, def in pairs(t.methods) do
 		local params, results = {}, {def.resulttype}
@@ -63,17 +67,17 @@ function interface(t)
 
 		_ENV[name] = function (self, ...)
 			local function show_error(msg)
-				error(name .. ': ' .. msg, 3)
+				error(self._interface_name .. '.' .. name .. ': ' .. msg, 3)
 			end
 			local name, exp_args, results = name, params, results
 			local args = {...}
 			local ok, err = validate_args(args, exp_args)
 			if not ok then show_error(err) end
-			ok, err = self.socket:send(mime.b64(binser.serialize(name, ...)) .. '\n')
+			ok, err = self._socket:send(mime.b64(binser.serialize(name, ...)) .. '\n')
 			if not ok then show_error(err) end
 
 			if #results > 1 or results[1] ~= 'void' then
-				local response, err = self.socket:receive('*l')
+				local response, err = self._socket:receive('*l')
 				if err then show_error(err) end
 				response = mime.unb64(response)
 				local ok, data = pcall(binser.deserialize(response))
@@ -84,3 +88,14 @@ function interface(t)
 	end
 end
 
+function create_proxy(hostname, port, interface)
+	local proxy = setmetatable({}, {__index = _G})
+
+	proxy._interface_name = interface
+	proxy._structs = {}
+	loadfile(idl_file, 't', proxy)
+	setmetatable(proxy, nil)
+	proxy._socket = socket.tcp()
+	assert(proxy._socket:connect(hostname, port))
+	return proxy
+end
