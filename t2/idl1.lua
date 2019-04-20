@@ -7,7 +7,7 @@ struct {name = "struct_a",
 
 struct {name = "struct_b",
         fields = {{name = "a", type = "double"},
-                  {name = "b", type = "string"}
+                  {name = "b", type = "struct_a"}
         }
 }
 
@@ -26,6 +26,11 @@ interface {name = "interface_a",
                    args = {{direction = "in", type = "double"},
                            {direction = "in", type = "string"}
                    }
-               }
+               },
+               derp = {
+                   resulttype = "void",
+                   args = {{direction = "in", type = "struct_b"},
+                   }
+               },
            }
 }

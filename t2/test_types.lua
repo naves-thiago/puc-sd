@@ -1,5 +1,25 @@
 types = require'types'
 
+t = {{{1, "int"},      true},
+     {{1, "double"},   true},
+     {{1.5, "double"}, true},
+     {{1.5, "int"},    false},
+     {{"a", "int"},    false},
+     {{"a", "double"}, false},
+     {{"a", "string"}, true},
+     {{1, "string"},   false},
+     {{1.5, "string"}, false},
+}
+
+for n, case in ipairs(t) do
+	local input, expected = table.unpack(case)
+	local ok, err = types.validate_type(table.unpack(input))
+	print(n, ok, err, ok == expected and '(ok)' or '(fail)')
+end
+
+print('----------------------------')
+
+
 struct = {{name = "a", type = "double"},
           {name = "b", type = "string"}
 }

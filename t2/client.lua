@@ -40,7 +40,12 @@ function validate_args(recv, expected)
 	if #recv ~= #expected then
 		return false, 'Expected ' .. #expected .. ' args, got ' .. #recv
 	end
-	-- TODO actually validate stuff
+	for i, t in ipairs(expected) do
+		if not types.validate_type(recv[i], expected[i]) then
+			return false
+		end
+	end
+
 	return true
 end
 
@@ -49,6 +54,11 @@ function struct(t)
 		error('Invalid struct')
 	end
 	structs[t.name] = t.fields
+	for k, v in pairs(t.fields) do
+		if structs[v.type] then
+			v.type = structs[v.type]
+		end
+	end
 end
 
 function interface(t)
@@ -64,10 +74,11 @@ function create_proxy(hostname, port, interface)
 	for name, def in pairs(interfaces[interface]) do
 		local params, results = {}, {def.resulttype}
 		for i, arg in ipairs(def.args) do
+			local arg_type = structs[arg.type] or arg.type
 			if arg.direction == 'in' or arg.direction == 'inout' then
-				table.insert(params, arg.type)
+				table.insert(params, arg_type)
 			else
-				table.insert(results, arg.type)
+				table.insert(results, arg_type)
 			end
 		end
 

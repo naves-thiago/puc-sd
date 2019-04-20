@@ -1,9 +1,18 @@
 local module = {}
 
-local types = {string = "string",
-               double = "number",
-               int    = "number",
-}
+local valid = {}
+function valid.string(s)
+	return type(s) == 'string'
+end
+
+function valid.int(i)
+	if type(i) ~= 'number' then return false end
+	return math.floor(i) == i
+end
+
+function valid.double(d)
+	return type(d) == 'number'
+end
 
 local function validate_struct(s, fields)
 	if s == nil then return false end
@@ -18,7 +27,7 @@ function module.validate_type(value, exptype)
 	if type(exptype) == 'table' then
 		return validate_struct(value, exptype)
 	end
-	if type(value) ~= types[exptype] then
+	if not valid[exptype](value) then
 		return false, 'Expected ' .. exptype .. ', got ' .. type(value)
 	end
 	return true
