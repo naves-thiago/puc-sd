@@ -4,6 +4,8 @@ socket = require'socket'
 mime = require'mime'
 
 idl_file = 'idl1.lua'
+interfaces = {}
+structs = {}
 
 function validade_struct(t)
 	if type(t.name) ~= 'string' then return end
@@ -46,16 +48,19 @@ function struct(t)
 	if not validade_struct(t) then
 		error('Invalid struct')
 	end
-	_structs[t.name] = t.fields
+	structs[t.name] = t.fields
 end
 
 function interface(t)
 	if not validate_interface(t) then
 		error('Invalid interface')
 	end
-	if _interface_name ~= t.name then return end
+	interfaces[t.name] = t.methods
+end
 
-	for name, def in pairs(t.methods) do
+function create_proxy(hostname, port, interface)
+	local proxy = {_interface_name = interface}
+	for name, def in pairs(interfaces[interface]) do
 		local params, results = {}, {def.resulttype}
 		for i, arg in ipairs(def.args) do
 			if arg.direction == 'in' or arg.direction == 'inout' then
@@ -65,7 +70,7 @@ function interface(t)
 			end
 		end
 
-		_ENV[name] = function (self, ...)
+		proxy[name] = function (self, ...)
 			local function show_error(msg)
 				error(self._interface_name .. '.' .. name .. ': ' .. msg, 3)
 			end
@@ -86,15 +91,8 @@ function interface(t)
 			end
 		end
 	end
-end
 
-function create_proxy(hostname, port, interface)
-	local proxy = setmetatable({}, {__index = _G})
-
-	proxy._interface_name = interface
-	proxy._structs = {}
-	loadfile(idl_file, 't', proxy)()
-	setmetatable(proxy, nil)
+	loadfile(idl_file)()
 	proxy._socket = socket.tcp()
 	assert(proxy._socket:connect(hostname, port))
 	return proxy
