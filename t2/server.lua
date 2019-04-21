@@ -91,7 +91,6 @@ local function waitincoming()
                                 sock_toclose:close()
                             end
                             connected[client] = unconnected[sock]
-                            unconnected[sock] = nil
                             table.insert(sockets, client)
                         end
                     else
@@ -99,10 +98,11 @@ local function waitincoming()
                         if line then
                             local res, name = parse_incoming(line, connected[sock])
                             res, err = parse_and_check_results(res, connected[sock], name)
+                            print(table.unpack(res))
                             if res then
-                                sock:send(mime.b64(binser.serialize(table.unpack(res))) .. '\n')
+                                sock:send(mime.b64(binser.serialize(true, table.unpack(res))) .. '\n')
                             else
-                                sock:send(mime.b64('__RPC_ERROR ' .. err).. '\n')
+                                sock:send(mime.b64(false, err).. '\n')
                             end
                         else
                             sock:send(mime.b64(binser.serialize(false, err)) .. '\n')
