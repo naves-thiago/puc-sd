@@ -66,22 +66,20 @@ function create_proxy(hostname, port, interface)
 			ok, err = self._socket:send(mime.b64(binser.serialize(name, ...)) .. '\n')
 			if not ok then show_error(err) end
 
-			if #results > 1 or results[1] ~= 'void' then
-				local response, err = self._socket:receive('*l')
-				if err then show_error(err) end
-				response = mime.unb64(response)
-				local ok, data = pcall(binser.deserialize(response))
-				if not ok then show_error(data) end
-				if data[1] then
-					table.remove(data, 1)
-					local ok, err = validate_args(data, results)
-					if not ok then
-						show_error(err)
-					end
-					return table.unpack(data, 1, #results)
-				else
-					show_error(data[2])
+			local response, err = self._socket:receive('*l')
+			if err then show_error(err) end
+			response = mime.unb64(response)
+			local ok, data = pcall(binser.deserialize, response)
+			if not ok then show_error(data) end
+			if data[1] then
+				table.remove(data, 1)
+				local ok, err = validate_args(data, results)
+				if not ok then
+					show_error(err)
 				end
+				return table.unpack(data, 1, #results)
+			else
+				show_error(data[2])
 			end
 		end
 	end
