@@ -51,6 +51,11 @@ local function validate_res(results, args, res_type, structinfo)
     return validate_primitive_res(results, inout_args, structinfo)
 end
 
+function validate_args(recv, expected, structinfo)
+	return validate_primitive_res(recv, expected, structinfo)
+end
+
+
 function validade_struct(t)
 	if type(t.name) ~= 'string' then return end
 	if type(t.fields) ~= 'table' then return end
@@ -80,14 +85,6 @@ function validate_interface(t)
 	return true
 end
 
-function validate_args(recv, expected)
-	if #recv ~= #expected then
-		return false, 'Expected ' .. #expected .. ' args, got ' .. #recv
-	end
-	-- TODO actually validate stuff
-	return true
-end
-
 function struct(t)
 	if not validade_struct(t) then
 		error('Invalid struct')
@@ -100,6 +97,31 @@ function interface(t)
 		error('Invalid interface')
 	end
 	idls[current_idl].interface.methods = t.methods
+end
+
+local function parse_incoming(incoming, idl)
+    local data = mime.unb64(incoming)
+    local received = binser.deserialize(data)
+    local name = received[1]
+    table.remove(received, 1)
+    local methinfo = idl.interface.methods[name]
+    local aux_received = {}
+    table.move(received, 1, #received, 1, aux_received)
+    validate_args(aux_received, methinfo.args, idl.structs)
+    local res = table.pack(pcall(methinfo.func, table.unpack(received)))
+    return res, name
+end
+
+local function parse_and_check_results(res, idl, name)
+    if not res[1] then
+        return false, res[2]
+    end
+    table.remove(res, 1)
+    local methinfo = idl.interface.methods[name]
+    local aux_res = {}
+    table.move(res, 1, #res, 1, aux_res)
+    local veridict = validate_res(aux_res, methinfo.args, methinfo.resulttype, idl.structs)
+    return veridict and res or false, 'wrong return types'
 end
 
 function register_servant(idlname, o)
@@ -119,30 +141,6 @@ function register_servant(idlname, o)
     return ip, port
 end
 
-local function parse_incoming(incoming, idl)
-    local data = mime.unb64(incoming)
-    local received = binser.deserialize(data)
-    local name = received[1]
-    table.remove(received, 1)
-    local methinfo = idl.interface.methods[name]
-    validate_args(received, methinfo.args)
-    local args = table.unpack(received)
-    local res = table.pack(pcall(methinfo.func, args))
-    return res, name
-end
-
-local function parse_and_check_results(res, idl, name)
-    if not res[1] then
-        return false, res[2]
-    end
-    table.remove(res, 1)
-    local methinfo = idl.interface.methods[name]
-    local aux_res = {}
-    table.move(res, 1, #res, 1, aux_res)
-    validate_res(aux_res, methinfo.args, methinfo.resulttype, idl.structs)
-    return res
-end
-
 local function waitincoming()
     while true do
             local socks = socket.select(sockets)
@@ -159,8 +157,12 @@ local function waitincoming()
                         sock:settimeout(1)
                         local line, err = sock:receive('*l')
                         local res, name = parse_incoming(line, connected[sock])
-                        res = parse_and_check_results(res, connected[sock], name)
-                        sock:send(mime.b64(binser.serialize(table.unpack(res))) .. '\n')
+                        res, err = parse_and_check_results(res, connected[sock], name)
+                        if res then
+                            sock:send(mime.b64(binser.serialize(table.unpack(res))) .. '\n')
+                        else
+                            sock:send(mime.b64('__RPC_ERROR ' .. err).. '\n')
+                        end
                         --sock:close()
                     end
                 end
