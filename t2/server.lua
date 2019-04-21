@@ -17,6 +17,7 @@ local type_translate = {
     string = 'string',
     int = 'number',
     double = 'number',
+    void = 'nil',
 }
 
 local function validate_primitive_res(res, args, structinfo)
