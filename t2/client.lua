@@ -3,46 +3,18 @@ binser = require'binser'
 socket = require'socket'
 mime = require'mime'
 
-idl_file = 'idl1.lua'
+idl_file = 'idl2.lua'
 interfaces = {}
 structs = {}
-
-function validade_struct(t)
-	if type(t.name) ~= 'string' then return end
-	if type(t.fields) ~= 'table' then return end
-	if #t.fields == 0 then return end
-	for _, f in ipairs(t.fields) do
-		if type(f.name) ~= 'string' then return end
-		if type(f.type) ~= 'string' then return end
-	end
-	return true
-end
-
-function validate_interface(t)
-	if type(t.name) ~= 'string' then return end
-	if type(t.methods) ~= 'table' then return end
-	for n, m in pairs(t.methods) do
-		if type(n) ~= 'string' then return end
-		if type(m) ~= 'table' then return end
-		if type(m.resulttype) ~= 'string' then return end
-		if m.args then
-			if type(m.args) ~= 'table' then return end
-			for _, a in ipairs(m.args) do
-				if type(a.direction) ~= 'string' then return end
-				if type(a.type) ~= 'string' then return end
-			end
-		end
-	end
-	return true
-end
 
 function validate_args(recv, expected)
 	if #recv ~= #expected then
 		return false, 'Expected ' .. #expected .. ' args, got ' .. #recv
 	end
 	for i, t in ipairs(expected) do
-		if not types.validate_type(recv[i], expected[i]) then
-			return false
+		local ok, err = types.validate_type(recv[i], expected[i])
+		if not ok then
+			return false, err
 		end
 	end
 
@@ -50,7 +22,7 @@ function validate_args(recv, expected)
 end
 
 function struct(t)
-	if not validade_struct(t) then
+	if not types.validate_struct(t) then
 		error('Invalid struct')
 	end
 	structs[t.name] = t.fields
@@ -62,7 +34,7 @@ function struct(t)
 end
 
 function interface(t)
-	if not validate_interface(t) then
+	if not types.validate_interface(t) then
 		error('Invalid interface')
 	end
 	interfaces[t.name] = t.methods
@@ -77,7 +49,8 @@ function create_proxy(hostname, port, interface)
 			local arg_type = structs[arg.type] or arg.type
 			if arg.direction == 'in' or arg.direction == 'inout' then
 				table.insert(params, arg_type)
-			else
+			end
+			if arg.direction == 'out' or arg.direction == 'inout' then
 				table.insert(results, arg_type)
 			end
 		end
@@ -99,7 +72,16 @@ function create_proxy(hostname, port, interface)
 				response = mime.unb64(response)
 				local ok, data = pcall(binser.deserialize(response))
 				if not ok then show_error(data) end
-				return table.unpack(data, 1, #results)
+				if data[1] then
+					table.remove(data, 1)
+					local ok, err = validate_args(data, results)
+					if not ok then
+						show_error(err)
+					end
+					return table.unpack(data, 1, #results)
+				else
+					show_error(data[2])
+				end
 			end
 		end
 	end

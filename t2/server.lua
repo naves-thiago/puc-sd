@@ -1,6 +1,7 @@
 local socket = require'socket'
 local binser = require'binser'
 local mime = require'mime'
+local types = require'types'
 
 local idl_file = 'idl1.lua'
 idls = {}
@@ -55,45 +56,15 @@ function validate_args(recv, expected, structinfo)
 	return validate_primitive_res(recv, expected, structinfo)
 end
 
-
-function validade_struct(t)
-	if type(t.name) ~= 'string' then return end
-	if type(t.fields) ~= 'table' then return end
-	if #t.fields == 0 then return end
-	for _, f in ipairs(t.fields) do
-		if type(f.name) ~= 'string' then return end
-		if type(f.type) ~= 'string' then return end
-	end
-	return true
-end
-
-function validate_interface(t)
-	if type(t.name) ~= 'string' then return end
-	if type(t.methods) ~= 'table' then return end
-	for n, m in pairs(t.methods) do
-		if type(n) ~= 'string' then return end
-		if type(m) ~= 'table' then return end
-		if type(m.resulttype) ~= 'string' then return end
-		if m.args then
-			if type(m.args) ~= 'table' then return end
-			for _, a in ipairs(m.args) do
-				if type(a.direction) ~= 'string' then return end
-				if type(a.type) ~= 'string' then return end
-			end
-		end
-	end
-	return true
-end
-
 function struct(t)
-	if not validade_struct(t) then
+	if not types.validate_struct(t) then
 		error('Invalid struct')
 	end
 	idls[current_idl].structs[t.name] = t.fields
 end
 
 function interface(t)
-	if not validate_interface(t) then
+	if not types.validate_interface(t) then
 		error('Invalid interface')
 	end
 	idls[current_idl].interface.methods = t.methods
@@ -146,22 +117,22 @@ local function waitincoming()
             local socks = socket.select(sockets)
             for _, sock in pairs(socks) do
                 if type(sock) == 'userdata' then
+                    sock:settimeout(1)
                     if unconnected[sock] then
-                        sock:settimeout(1)
                         local client = sock:accept()
                         if client then
                             connected[client] = unconnected[sock]
+                            unconnected[sock] = nil
                             table.insert(sockets, client)
                         end
                     else
-                        sock:settimeout(1)
                         local line, err = sock:receive('*l')
                         local res, name = parse_incoming(line, connected[sock])
                         res, err = parse_and_check_results(res, connected[sock], name)
                         if res then
                             sock:send(mime.b64(binser.serialize(table.unpack(res))) .. '\n')
                         else
-                            sock:send(mime.b64('__RPC_ERROR ' .. err).. '\n')
+                            sock:send(mime.b64(binser.serialize(false, err)) .. '\n')
                         end
                         --sock:close()
                     end
