@@ -98,7 +98,6 @@ local function waitincoming()
                                 sock_toclose:close()
                             end
                             connected[client] = unconnected[sock]
-                            unconnected[sock] = nil
                             table.insert(sockets, client)
                         end
                     elseif connected[sock] then
@@ -107,7 +106,7 @@ local function waitincoming()
                             local res, name = parse_incoming(line, connected[sock])
                             if not res then
                                 local err = name
-                                sock:send(mime.b64(false, err).. '\n')
+                                sock:send(mime.b64(binser.serialize(false, err)).. '\n')
                                 goto continue
                             end
                             local res, err = parse_and_check_results(res, connected[sock], name)
@@ -117,7 +116,9 @@ local function waitincoming()
                                 sock:send(mime.b64(binser.serialize(false, err)).. '\n')
                             end
                         else
-                            sock:send(mime.b64(binser.serialize(false, err)) .. '\n')
+                            if err == 'closed' then
+                                connected[sock] = nil
+                            end
                         end
                     end
                     ::continue::
