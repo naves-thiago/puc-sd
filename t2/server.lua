@@ -29,6 +29,11 @@ function struct(t)
 		error('Invalid struct')
 	end
 	idls[current_idl].structs[t.name] = t.fields
+    for k, v in pairs(t.fields) do
+        if idls[current_idl].structs[v.type] then
+            v.type = idls[current_idl].structs[v.type]
+        end
+    end
 end
 
 function interface(t)

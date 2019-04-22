@@ -3,7 +3,7 @@ binser = require'binser'
 socket = require'socket'
 mime = require'mime'
 
-idl_file = 'idl2.lua'
+idl_file = 'idl1.lua'
 interfaces = {}
 structs = {}
 
