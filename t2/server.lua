@@ -13,9 +13,10 @@ local unconnected = {}
 local connected = {}
 local sockets = {}
 
-function validate_recv(recv, expected)
+function validate_recv(recv, expected, structs)
         for i, received in ipairs(recv) do
-            local ok, err = types.validate_type(received, expected[i].type)
+            local exp_type = structs[expected[i].type] or expected[i].type
+            local ok, err = types.validate_type(received, exp_type)
             if not ok then
                 return ok, err
             end
@@ -43,6 +44,8 @@ local function parse_incoming(incoming, idl)
     local name = received[1]
     table.remove(received, 1)
     local methinfo = idl.interface.methods[name]
+    local ok, err = validate_recv(received, methinfo.args, idl.structs)
+    if not ok then return ok, err end
     local res = table.pack(pcall(methinfo.func, table.unpack(received)))
     return res, name
 end
@@ -55,8 +58,8 @@ local function parse_and_check_results(res, idl, name)
     local methinfo = idl.interface.methods[name]
     local exp_results = {{type = methinfo.resulttype}}
     table.move(methinfo.args, 1, #methinfo.args, 2, exp_results)
-    local veridict, err = validate_recv(res, exp_results)
-    return veridict and res or false, 'wrong return types'
+    local veridict, err = validate_recv(res, exp_results, idl.structs)
+    return veridict and res or false, err
 end
 
 function register_servant(idlname, o)
@@ -85,29 +88,39 @@ local function waitincoming()
                     if unconnected[sock] then
                         local client = sock:accept()
                         if client then
-                            if #connected == 3 then
+                            local connected_size = 0
+                            for _ in pairs(connected) do
+                                connected_size = connected_size + 1
+                            end
+                            if connected_size == 3 then
                                 local sock_toclose = next(connected, nil)
                                 connected[sock_toclose] = nil
                                 sock_toclose:close()
                             end
                             connected[client] = unconnected[sock]
+                            unconnected[sock] = nil
                             table.insert(sockets, client)
                         end
-                    else
+                    elseif connected[sock] then
                         local line, err = sock:receive('*l')
                         if line then
                             local res, name = parse_incoming(line, connected[sock])
-                            res, err = parse_and_check_results(res, connected[sock], name)
-                            print(table.unpack(res))
+                            if not res then
+                                local err = name
+                                sock:send(mime.b64(false, err).. '\n')
+                                goto continue
+                            end
+                            local res, err = parse_and_check_results(res, connected[sock], name)
                             if res then
                                 sock:send(mime.b64(binser.serialize(true, table.unpack(res))) .. '\n')
                             else
-                                sock:send(mime.b64(false, err).. '\n')
+                                sock:send(mime.b64(binser.serialize(false, err)).. '\n')
                             end
                         else
                             sock:send(mime.b64(binser.serialize(false, err)) .. '\n')
                         end
                     end
+                    ::continue::
                 end
             end
     end
