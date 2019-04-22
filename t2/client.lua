@@ -12,7 +12,8 @@ function validate_args(recv, expected)
 		return false, 'Expected ' .. #expected .. ' args, got ' .. #recv
 	end
 	for i, t in ipairs(expected) do
-		local ok, err = types.validate_type(recv[i], expected[i])
+		local exp_type = structs[expected[i]] or expected[i]
+		local ok, err = types.validate_type(recv[i], exp_type)
 		if not ok then
 			return false, err
 		end
