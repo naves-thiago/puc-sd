@@ -28,8 +28,8 @@ interface {name = "interface_a",
                    }
                },
                derp = {
-                   resulttype = "void",
-                   args = {{direction = "in", type = "struct_b"},
+                   resulttype = "double",
+                   args = {{direction = "inout", type = "int"},
                    }
                },
            }

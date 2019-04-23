@@ -55,7 +55,10 @@ function m.create_proxy(hostname, port, idl_file, interface)
 	local _socket = socket.tcp()
 	assert(_socket:connect(hostname, port))
 	for name, def in pairs(_interfaces[interface]) do
-		local params, results = {}, {def.resulttype}
+		local params, results = {}, {}
+		if def.resulttype ~= 'void' then
+			table.insert(results, def.resulttype)
+		end
 		for i, arg in ipairs(def.args) do
 			local arg_type = _structs[arg.type] or arg.type
 			if arg.direction == 'in' or arg.direction == 'inout' then
@@ -96,10 +99,6 @@ function m.create_proxy(hostname, port, idl_file, interface)
 	end
 
 	return proxy
-end
-
-local function init(self, idl_file)
-	return {_interfaces = interfaces, _structs = structs, create_proxy = create_proxy}
 end
 
 return m

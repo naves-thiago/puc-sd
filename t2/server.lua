@@ -39,8 +39,11 @@ local function parse_and_check_results(res, idl, interface_name, func_name)
     end
     table.remove(res, 1)
     local methinfo = idl.interfaces[interface_name].methods[func_name]
-    local exp_results = {{type = methinfo.resulttype}}
-    table.move(methinfo.args, 1, #methinfo.args, 2, exp_results)
+    local exp_results = {}
+	if methinfo.resulttype ~= 'void' then
+		table.insert(exp_results, {type = methinfo.resulttype})
+	end
+    table.move(methinfo.args, 1, #methinfo.args, #exp_results + 1, exp_results)
     local veridict, err = validate_recv(res, exp_results, idl.structs)
     return veridict and res or false, err
 end
@@ -98,7 +101,6 @@ function m.waitincoming()
 						for _ in pairs(connected) do
 							connected_size = connected_size + 1
 						end
-						print('mopa', connected_size)
 						if connected_size == 3 then
 							local sock_toclose = next(connected, nil)
 							print('saporra', sock_toclose)
