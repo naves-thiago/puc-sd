@@ -71,6 +71,10 @@ function m.register_servant(idl_name, interface_name, o)
 	end
 
 	loadfile(idl_name, 't')()
+
+	_ENV.struct = nil
+	_ENV.interface = nil
+
 	local server = assert(socket.bind('*', 0))
 	local ip, port = server:getsockname()
 	for name, func in pairs(o) do
