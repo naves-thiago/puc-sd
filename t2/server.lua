@@ -53,7 +53,7 @@ function m.register_servant(idl_name, interface_name, o)
 	idl.interfaces = {}
 	idl.structs = {}
 
-	function _ENV.struct(t)
+	function struct(t)
 		if not types.validate_struct(t) then
 			error('Invalid struct')
 		end
@@ -65,7 +65,7 @@ function m.register_servant(idl_name, interface_name, o)
 		end
 	end
 
-	function _ENV.interface(t)
+	function interface(t)
 		if not types.validate_interface(t) then
 			error('Invalid interface')
 		end
@@ -74,9 +74,6 @@ function m.register_servant(idl_name, interface_name, o)
 	end
 
 	loadfile(idl_name, 't')()
-
-	_ENV.struct = nil
-	_ENV.interface = nil
 
 	local server = assert(socket.bind('*', 0))
 	local ip, port = server:getsockname()
