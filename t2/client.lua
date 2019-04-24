@@ -20,7 +20,8 @@ local function validate_args(recv, expected, structs)
 	return true
 end
 
-function m.create_proxy(hostname, port, idl_file, interface)
+-- If interface == nil, defaults to the first interface
+function m.create_proxy(idl_file, hostname, port, interface)
 	local proxy = {}
 	local _interfaces = {}
 	local _structs = {}
@@ -42,6 +43,7 @@ function m.create_proxy(hostname, port, idl_file, interface)
 		if not types.validate_interface(t) then
 			error('Invalid interface')
 		end
+		interface = interface or t.name
 		_interfaces[t.name] = t.methods
 	end
 

@@ -100,7 +100,6 @@ function m.waitincoming()
 						end
 						if connected_size == 3 then
 							local sock_toclose = next(connected, nil)
-							print('saporra', sock_toclose)
 							connected[sock_toclose] = nil
 							sock_toclose:close()
 						end
