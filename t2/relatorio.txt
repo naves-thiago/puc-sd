@@ -1,0 +1,18 @@
+Protocolo
+
+Chamada de função: Para chamar uma função registrada no servidor o cliente envia para o servidor uma string binária codificada em base 64. Essa string consiste do nome da função, seguido dos argumentos passados a ele. Esses argumentos podem ser de um tipo primitivo(Int, Double, String) ou de um "tipo definido pelo usuário" que seria uma struct ou possivelmente uma struct aninhada. Sendo uma struct, enviamos a mesma na forma de uma tabela Lua. Para serializar essas informações fazemos uso da biblioteca binser.
+
+Retorna da função: O servidor envia algo parecido com o que foi descrito anteriormente, uma string codificada em base 64 que, caso a função tenha sido executada sem levantar erros, consistirá do(s) valor(es) retornado(s) pela função. Em caso de falha será retornado um erro para o servidor.
+
+Verificações
+
+Tanto no cliente como no servidor verificamos se os tipos passados como parâmetro para a função estão de acordo com os definidos na idl. Também validamos se os tipos retornados pela função, no servidor, estão de acordo com os especificados na idl.
+
+
+Extras
+
+Suportamos diversas idls por servidor e diversas interfaces por idl.
+
+Pool de conexões
+
+O servidor possui um pool que suporta até 3 conecões. Caso esse número seja excedido, fechamos a conexão de um dos clientes. O critério para desconectar o cliente consiste basicamente de pegar o primeiro que estabeleceu a conexão.
