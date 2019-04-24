@@ -26,7 +26,14 @@ funcs_numbers = {
 	end
 }
 
+funcs_interface_a = {
+	sum = function (a, b)
+		return a + b
+	end
+}
+
 print(librpc.register_servant('idl_demo.lua', 'colors', funcs_colors))
 print(librpc.register_servant('idl_demo.lua', 'numbers', funcs_numbers))
+print(librpc.register_servant('idl_demo2.lua', 'interface_a', funcs_interface_a))
 
 librpc.waitincoming()
