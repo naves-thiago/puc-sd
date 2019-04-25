@@ -1,18 +1,25 @@
 Protocolo
 
-Chamada de função: Para chamar uma função registrada no servidor o cliente envia para o servidor uma string binária codificada em base 64. Essa string consiste do nome da função, seguido dos argumentos passados a ele. Esses argumentos podem ser de um tipo primitivo(Int, Double, String) ou de um "tipo definido pelo usuário" que seria uma struct ou possivelmente uma struct aninhada. Sendo uma struct, enviamos a mesma na forma de uma tabela Lua. Para serializar essas informações fazemos uso da biblioteca binser.
+As mensagens trafegadas entre o servidor e o cliente são serializadas utilizando a biblioteca binser, codificando a saída desta em base 64. Uma quebra de linha sinaliza o fim da mensagem.
+O binser converte internamente inteiros, floats e doubles para representações independentes de plataforma.
 
-Retorna da função: O servidor envia algo parecido com o que foi descrito anteriormente, uma string codificada em base 64 que, caso a função tenha sido executada sem levantar erros, consistirá do(s) valor(es) retornado(s) pela função. Em caso de falha será retornado um erro para o servidor.
+Chamada de função: Para chamar uma função registrada no servidor o cliente envia para o servidor o nome da função (como string) seguido dos parâmetros, preservando os tipos desses. Esses parâmetros podem ser de um tipo primitivo (Int, Double, String) ou uma struct definida na IDL, possivelmente outras structs aninhadas. As structs são presentadas por tabelas Lua em que cada entrada é da forma "nome do campo" = valor.
+
+Retorno da função: O servidor retorna para o cliente um boleano indicando se a execução foi bem sucedida, seguido do retorno da função e dos parâmetros out/inout. Em caso de erro, o servidor retorna apenas 'false' seguido de uma string com uma mensagem de erro. Essa interface foi inspirada na função 'pcall' de Lua.
+Se o tipo de retorno da função for ‘void’, esse retorno é omitido e apenas parâmetros out/inout são retornados. Em particular, se a função não tiver retorno nem parâmetros de saída, é enviada apenas uma quebra de linha para o cliente (resultado da serialização de um nil pelo binser).
+Se múltiplas interfaces forem utilizadas, cada uma utiliza uma conexão em uma porta dedicada.
 
 Verificações
 
-Tanto no cliente como no servidor verificamos se os tipos passados como parâmetro para a função estão de acordo com os definidos na idl. Também validamos se os tipos retornados pela função, no servidor, estão de acordo com os especificados na idl.
-
+Tanto no cliente como no servidor verificamos se os tipos passados como parâmetro para a função estão de acordo com os definidos na IDL. Ambos os lados também validam se os tipos retornados pela função estão de acordo com os especificados na IDL.
+Chamadas que podem gerar erros Lua são executadas utilizando-se 'pcall' afim de capturar e tratar apropriadamente o erro. Em particular, erros no servidor são propagados para o cliente pelo protocolo descrito acima.
+No cliente, o proxy gera erros Lua no caso do servidor indicar erro na execução (ou em caso de erro na comunicação). Dessa forma, a utilização do proxy se assemelha a chamar a função do servidor como se fosse local e o tratamento de erro pode ser feito de maneira uniforme.
 
 Extras
 
-Suportamos diversas idls por servidor e diversas interfaces por idl.
+Tanto o cliente como o servidor suportam múltiplas IDLs e múltiplas interfaces por IDL.
+Structs podem ser aninhadas.
 
 Pool de conexões
 
-O servidor possui um pool que suporta até 3 conecões. Caso esse número seja excedido, fechamos a conexão de um dos clientes. O critério para desconectar o cliente consiste basicamente de pegar o primeiro que estabeleceu a conexão.
+O servidor possui um pool que suporta até 3 conexões. Caso esse número seja excedido, fechamos a conexão de um dos clientes. O primeiro cliente no buffer de conexões é desconectado (na prática, um cliente aleatório).
