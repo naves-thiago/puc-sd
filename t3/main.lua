@@ -32,14 +32,14 @@ end
 -- x, y - posicao atual
 -- nx, ny - nova posicao
 function Tabuleiro:movePeca(x, y, nx, ny)
-	-- TODO: Testar
 	local p = self.pecas[x][y]
 	if not p then return end
 	if self.pecas[nx][ny] then return end
 
 	self.pecas[x][y] = nil
 	self.pecas[nx][ny] = p
-	p.x, p.y = self.centro(nx, ny)
+	p:move(nx, ny)
+	return true
 end
 
 -- Retorna o centro (em pixels) da casa
@@ -52,7 +52,6 @@ end
 -- Retorna os indices da casa
 -- x, y = posicao em pixels
 function Tabuleiro:indiceCasa(x, y)
-	-- TODO: Testar
 	return math.floor(x / self.casaW),
 		   math.floor(y / self.casaH)
 end
@@ -62,37 +61,80 @@ local Peca = {
 	corBranco = {1, 1, 1},
 }
 
+function Peca:move(x, y)
+	self.x, self.y = x, y
+	self.posX, self.posY = Tabuleiro:centro(x, y)
+end
+
 function Peca:draw()
 	-- TODO: Graficos diferentes para pecas e damas
 	love.graphics.setColor(unpack(self.cor))
-	love.graphics.circle("fill", self.x, self.y, self.raio, 20)
+	love.graphics.circle("fill", self.posX, self.posY, self.raio, 20)
 end
 
 function Peca.new(x, y, cor)
 	assert(x)
 	assert(y)
 	assert(type(cor) == "table")
-	return setmetatable({
-		x = x,
-		y = y,
+	local p = setmetatable({
 		cor = cor,
 		dama = false,
 	}, {__index=Peca})
+	p:move(x, y)
+	return p
 end
 
 function criaPecas()
 	for y = 0, 2 do
 		for x = 1, 7, 2 do
-			local px, py = Tabuleiro:centro(x - y % 2, y)
-			local p = Peca.new(px, py, Peca.corPreto)
+			local px = x - y % 2
+			local p = Peca.new(px, y, Peca.corPreto)
 			Tabuleiro.pecas[x - y % 2][y] = p
 
 			local y2 = y + 5
-			px, py = Tabuleiro:centro(x - y2 % 2, y2)
-			p = Peca.new(px, py, Peca.corBranco)
+			px = x - y2 % 2
+			p = Peca.new(px, y2, Peca.corBranco)
 			Tabuleiro.pecas[x - y2 % 2][y2] = p
 		end
 	end
+end
+
+Movimento = {
+	movendo = false,
+	peca = nil,
+	clickX = 0,
+	clickY = 0,
+	fimCallback = nil,
+}
+
+function Movimento:update()
+	if not self.movendo then return end
+	self.peca.posX = love.mouse.getX() - self.difX
+	self.peca.posY = love.mouse.getY() - self.difY
+end
+
+function love.mousepressed(x, y, button, istouch)
+	if button ~= 1 then return end
+	local casaX, casaY = Tabuleiro:indiceCasa(x, y)
+	local peca = Tabuleiro.pecas[casaX][casaY]
+	if not peca then return end
+	Movimento.movendo = true
+	Movimento.difX = x - peca.posX
+	Movimento.difY = y - peca.posY
+	Movimento.peca = peca
+end
+
+function love.mousereleased(x, y, button, istouch)
+	if button ~= 1 then return end
+	if not Movimento.movendo then return end
+	local casaX, casaY = Tabuleiro:indiceCasa(x, y)
+	local peca = Movimento.peca
+	if not Tabuleiro:movePeca(peca.x, peca.y, casaX, casaY) then
+		peca:move(peca.x, peca.y)
+	end
+
+	Movimento.peca = nil
+	Movimento.movendo = false
 end
 
 function love.load()
@@ -102,7 +144,7 @@ function love.load()
 end
 
 function love.update(dt)
-
+	Movimento:update()
 end
 
 function love.draw()
