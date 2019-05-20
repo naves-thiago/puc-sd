@@ -23,7 +23,7 @@ function Tabuleiro.init()
 	Tabuleiro.casaH = math.floor(love.graphics.getHeight() / 8)
 	local p = {}
 	for i = 0, 7 do
-		p[#p + 1] = {}
+		p[i] = {}
 	end
 	Tabuleiro.pecas = p -- pecas[x][y] == alguma peca ou nil
 end
@@ -45,7 +45,6 @@ end
 -- Retorna o centro (em pixels) da casa
 -- x, y = indices (0-7) da casa
 function Tabuleiro:centro(x, y)
-	-- TODO: Testar
 	return math.floor((x + 0.5) * self.casaW),
 		   math.floor((y + 0.5) * self.casaH)
 end
@@ -70,17 +69,36 @@ function Peca:draw()
 end
 
 function Peca.new(x, y, cor)
+	assert(x)
+	assert(y)
+	assert(type(cor) == "table")
 	return setmetatable({
 		x = x,
 		y = y,
 		cor = cor,
 		dama = false,
-	}, Peca)
+	}, {__index=Peca})
+end
+
+function criaPecas()
+	for y = 0, 2 do
+		for x = 1, 7, 2 do
+			local px, py = Tabuleiro:centro(x - y % 2, y)
+			local p = Peca.new(px, py, Peca.corPreto)
+			Tabuleiro.pecas[x - y % 2][y] = p
+
+			local y2 = y + 5
+			px, py = Tabuleiro:centro(x - y2 % 2, y2)
+			p = Peca.new(px, py, Peca.corBranco)
+			Tabuleiro.pecas[x - y2 % 2][y2] = p
+		end
+	end
 end
 
 function love.load()
 	Tabuleiro.init()
-	Peca.raio = math.min(Tabuleiro.casaW, Tabuleiro.casaH) * 0.8
+	Peca.raio = math.min(Tabuleiro.casaW, Tabuleiro.casaH) * 0.4
+	criaPecas()
 end
 
 function love.update(dt)
@@ -88,6 +106,10 @@ function love.update(dt)
 end
 
 function love.draw()
-	--love.graphics.print("Hello World", 400, 300)
 	Tabuleiro:draw()
+	for y, linha in pairs(Tabuleiro.pecas) do
+		for x, peca in pairs(linha) do
+			peca:draw()
+		end
+	end
 end
