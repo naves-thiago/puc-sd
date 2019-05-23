@@ -64,6 +64,9 @@ end
 function Tabuleiro:validaJogada(x, y, nx, ny, peca)
 	if x == nx and y == ny then return false end
 
+	-- Movimento apenas na diagonal
+	if math.abs(nx - x) ~= math.abs(ny - y) then return false end
+
 	-- So dama pode andar para tras
 	if not peca.dama then
 		if peca.cor == Peca.corPreto and ny < y then return false end
