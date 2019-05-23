@@ -67,9 +67,17 @@ function Peca:move(x, y)
 end
 
 function Peca:draw()
-	-- TODO: Graficos diferentes para pecas e damas
 	love.graphics.setColor(unpack(self.cor))
 	love.graphics.circle("fill", self.posX, self.posY, self.raio, 20)
+
+	if self.dama then
+		local corListra = self.cor == Peca.corPreto and Peca.corBranco
+				or Peca.corPreto
+		love.graphics.setColor(unpack(corListra))
+		love.graphics.circle("fill", self.posX, self.posY, self.raio * 0.8, 20)
+		love.graphics.setColor(unpack(self.cor))
+		love.graphics.circle("fill", self.posX, self.posY, self.raio * 0.7, 20)
+	end
 end
 
 function Peca.new(x, y, cor)
