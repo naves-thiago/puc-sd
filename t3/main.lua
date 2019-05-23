@@ -4,6 +4,11 @@ local Tabuleiro = {
 	corBranco = {216 / 255, 183 / 255, 121 / 255},
 }
 
+local Peca = {
+	corPreto = {0, 0, 0},
+	corBranco = {1, 1, 1},
+}
+
 function Tabuleiro:draw()
 	for cor = 0, 1 do
 		local c = cor == 0 and self.corBranco or self.corPreto
@@ -35,7 +40,7 @@ function Tabuleiro:movePeca(x, y, nx, ny)
 	local p = self.pecas[x][y]
 	if not p then return end
 	if self.pecas[nx][ny] then return end
-
+	if not self:validaJogada(x, y, nx, ny, p) then return end
 	self.pecas[x][y] = nil
 	self.pecas[nx][ny] = p
 	p:move(nx, ny)
@@ -56,10 +61,16 @@ function Tabuleiro:indiceCasa(x, y)
 		   math.floor(y / self.casaH)
 end
 
-local Peca = {
-	corPreto = {0, 0, 0},
-	corBranco = {1, 1, 1},
-}
+function Tabuleiro:validaJogada(x, y, nx, ny, peca)
+	if x == nx and y == ny then return false end
+	-- Virou dama?
+	if (peca.cor == Peca.corBranco and ny == 0) or
+	   (peca.cor == Peca.corPreto  and ny == 7) then
+		peca.dama = true
+	end
+
+	return true
+end
 
 function Peca:move(x, y)
 	self.x, self.y = x, y
