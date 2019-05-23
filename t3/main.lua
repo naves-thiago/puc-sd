@@ -63,6 +63,13 @@ end
 
 function Tabuleiro:validaJogada(x, y, nx, ny, peca)
 	if x == nx and y == ny then return false end
+
+	-- So dama pode andar para tras
+	if not peca.dama then
+		if peca.cor == Peca.corPreto and ny < y then return false end
+		if peca.cor == Peca.corBranco and ny > y then return false end
+	end
+
 	-- Virou dama?
 	if (peca.cor == Peca.corBranco and ny == 0) or
 	   (peca.cor == Peca.corPreto  and ny == 7) then
