@@ -47,9 +47,13 @@ end
 function Tabuleiro:movePeca(x, y, nx, ny)
 	local p = self.pecas[x][y]
 	if not p then return end
-	if self.pecas[nx][ny] then return end
-	if not self:validaJogada(x, y, nx, ny, p) then return end
-	Mosquitto:movepeca(x, y, nx, ny)
+	if not self:validaJogada(x, y, nx, ny, p) then
+		p:move(x, y)
+		return
+	end
+	self.pecas[x][y] = nil
+	self.pecas[nx][ny] = p
+	p:move(nx, ny)
 	return true
 end
 
@@ -69,6 +73,7 @@ end
 
 function Tabuleiro:validaJogada(x, y, nx, ny, peca)
 	if x == nx and y == ny then return false end
+	if self.pecas[nx][ny] then return false end
 
 	-- Movimento apenas na diagonal
 	if math.abs(nx - x) ~= math.abs(ny - y) then return false end
@@ -117,10 +122,7 @@ function Mosquitto.init(uri, id)
 			local received = binser.deserialize(data)
 			local x, y = received[1], received[2]
 			local nx, ny = received[3], received[4]
-			local p = Tabuleiro.pecas[x][y]
-			Tabuleiro.pecas[x][y] = nil
-			Tabuleiro.pecas[nx][ny] = p
-			p:move(nx, ny)
+			Tabuleiro:movePeca(x, y, nx, ny)
 			assert(Mosquitto.client:acknowledge(msg))
 		end,
 
@@ -207,10 +209,7 @@ function love.mousereleased(x, y, button, istouch)
 	if not Movimento.movendo then return end
 	local casaX, casaY = Tabuleiro:indiceCasa(x, y)
 	local peca = Movimento.peca
-	if not Tabuleiro:movePeca(peca.x, peca.y, casaX, casaY) then
-		peca:move(peca.x, peca.y)
-	end
-
+	Mosquitto:movepeca(peca.x, peca.y, casaX, casaY)
 	Movimento.peca = nil
 	Movimento.movendo = false
 end
