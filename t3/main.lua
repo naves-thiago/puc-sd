@@ -84,6 +84,35 @@ function Tabuleiro:validaJogada(x, y, nx, ny, peca)
 		if peca.cor == Peca.corBranco and ny > y then return false end
 	end
 
+	-- So dama pode andar mais de uma casa
+	if math.abs(x - nx) > 2 and not peca.dama then return false end
+
+	-- Comeu outra?
+	local dirX = nx > x and 1 or -1
+	local dirY = ny > y and 1 or -1
+	if peca.dama then
+		-- Damas pode comer exatamente 1 peca a qualquer distancia
+		-- Nao pode passar por cima de uma peca do mesmo jogador
+		local distancia = math.abs(x - nx)
+		local comida
+		for passo = 1, distancia -1 do
+			local peca2 = self.pecas[x + passo * dirX][y + passo * dirY]
+			if peca2 and comida then return false end
+			comida = comida or peca2
+			if peca2 and peca2.cor == peca.cor then return false end
+		end
+		if comida then
+			self.pecas[comida.x][comida.y] = nil
+		end
+	else
+		-- So pode andar mais de 1 comendo
+		if math.abs(x - nx) == 2 then
+			local peca2 = self.pecas[x + dirX][y + dirY]
+			if not peca2 or peca2.cor == peca.cor then return false end
+			self.pecas[x + dirX][y + dirY] = nil
+		end
+	end
+
 	-- Virou dama?
 	if (peca.cor == Peca.corBranco and ny == 0) or
 	   (peca.cor == Peca.corPreto  and ny == 7) then
