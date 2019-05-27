@@ -1,7 +1,15 @@
 -- Lua 5.1
+local mqtt = require'mqtt'
+local binser = require'binser'
+local mime = require'mime'
+local ioloop_get = require("mqtt.ioloop").get
 local Tabuleiro = {
 	corPreto = {79 / 255, 54 / 255, 7 / 255},
 	corBranco = {216 / 255, 183 / 255, 121 / 255},
+}
+
+local Mosquitto = {
+	client = {}
 }
 
 local Peca = {
@@ -41,9 +49,7 @@ function Tabuleiro:movePeca(x, y, nx, ny)
 	if not p then return end
 	if self.pecas[nx][ny] then return end
 	if not self:validaJogada(x, y, nx, ny, p) then return end
-	self.pecas[x][y] = nil
-	self.pecas[nx][ny] = p
-	p:move(nx, ny)
+	Mosquitto:movepeca(x, y, nx, ny)
 	return true
 end
 
@@ -80,6 +86,49 @@ function Tabuleiro:validaJogada(x, y, nx, ny, peca)
 	end
 
 	return true
+end
+
+function Mosquitto:movepeca(x, y, nx, ny)
+	assert(self.client:publish{
+		topic='t/a',
+		payload = mime.b64(binser.serialize(x, y, nx, ny) .. '\n'),
+		qos = 0})
+end
+
+function Mosquitto.init(uri, id)
+	assert(uri, 'uri is a mandotory parameter')
+	assert(id, 'id is a mandotory parameter')
+	Mosquitto.client = mqtt.client{
+		uri = uri,
+		id = id,
+		clean = true,
+	}
+	Mosquitto.client:on{
+		connect = function(connack)
+			if connack.rc ~= 0 then
+				print("connection failed", connack)
+				return
+			end
+			assert(Mosquitto.client:subscribe{ topic="t/a", qos = 0, callback = function(suback) assert(suback) end,})
+		end,
+
+		message = function(msg)
+			local data = mime.unb64(msg.payload)
+			local received = binser.deserialize(data)
+			local x, y = received[1], received[2]
+			local nx, ny = received[3], received[4]
+			local p = Tabuleiro.pecas[x][y]
+			Tabuleiro.pecas[x][y] = nil
+			Tabuleiro.pecas[nx][ny] = p
+			p:move(nx, ny)
+			assert(Mosquitto.client:acknowledge(msg))
+		end,
+
+		error = function(err)
+			print("MQTT error", err)
+		end,
+	}
+	Mosquitto.client:start_connecting()
 end
 
 function Peca:move(x, y)
@@ -168,12 +217,16 @@ end
 
 function love.load()
 	Tabuleiro.init()
+	Mosquitto.init('localhost', 'lua love ' .. tostring(arg[2]))
 	Peca.raio = math.min(Tabuleiro.casaW, Tabuleiro.casaH) * 0.4
 	criaPecas()
 end
 
 function love.update(dt)
 	Movimento:update()
+	local loop = ioloop_get()
+	loop:add(Mosquitto.client)
+	loop:iteration()
 end
 
 function love.draw()
