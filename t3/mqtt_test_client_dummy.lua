@@ -7,11 +7,6 @@ client = mqtt.client{
 print('created')
 
 function tacb(suback)
-	print("subscribed", suback)
-	assert(client:publish{
-		topic='t/a',
-		payload = 'hello',
-		qos = 0})
 end
 
 client:on{
@@ -20,15 +15,12 @@ client:on{
 			print("connection failed", connack)
 			return
 		end
-		print("Connected", connack)
 
 		assert(client:subscribe{ topic="t/a", qos = 0, callback = tacb })
 	end,
 
 	message = function(msg)
 		assert(client:acknowledge(msg))
-		print("received", msg)
-		assert(client:disconnect())
 	end,
 
 	error = function(err)

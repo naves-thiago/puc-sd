@@ -1,0 +1,62 @@
+Teste medindo tempo de ida e volta em milisec, somente um inscrito
+
+10 mensagens
+0.3108154296875
+
+100 mensagens
+1.2477075195312
+
+1000 mensagens
+17.469286376953
+
+10000 mensagens
+158.72521782227
+
+100000 mensagens
+1679.4553859033
+
+1000000 mensagens
+16015.877671134
+
+10000000 mensagens
+162054.75589636
+
+Teste medindo tempo de ida e volta em milisec, dois inscritos
+
+10 mensagens
+0.4330810546875
+
+100 mensagens
+3.0992846679688
+
+1000 mensagens
+28.609662841797
+
+10000 mensagens
+270.84873395996
+
+100000 mensagens
+2222.7510433911
+
+1000000 mensagens
+lua: mqtt_test.lua:19: failed to send PUBLISH: connector.send failed: timeout
+
+Teste medindo tempo de ida e volta em milisec, três inscritos
+
+10 mensagens
+0.6911865234375
+
+100 mensagens
+3.4701928710937
+
+1000 mensagens
+39.024669677734
+
+10000 mensagens
+307.13337658691
+
+100000 mensagens
+2483.7911495679
+
+1000000 mensagens
+lua: mqtt_test.lua:19: failed to send PUBLISH: connector.send failed: timeout
