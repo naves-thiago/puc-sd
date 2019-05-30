@@ -19,6 +19,12 @@ Regras não implementadas:
 - O jogador com peças brancas joga primeiro.
 - Os jogadores alternam as cores das peças entre as partidas.
 
+
+Rodando o jogo:
+No diretório do arquivo main:
+$ love . id_do_cliente
+Para cada cliente.
+
 Testes do Mosquito:
 
 Programa usando luamqtt enviando N mensagens por vez e esperando resposta antes de enviar novamente.
@@ -38,6 +44,12 @@ Campos:
 - Average: Tempo médio de transferência de uma mensagem (não do bloco)
 - Total transfer time: Soma dos tempos de transferência de todos os blocos
 - Total time: Diferença de tempo entre o envio da primeira mensagem e o recebimento da última
+
+Rodando o teste:
+No diretório do mqtt_test_client_2.lua
+$ lua mqtt_test_client_2.lua tamanho_do_bloco (<= 100000)
+
+Resultado dos testes:
 
 Messages: 100000
 Block size: 1
@@ -135,3 +147,9 @@ Average: 0.0429 ms
 Total transfer time: 42.8618 s
 Total time: 42.8618 s
 -------------------------
+
+
+
+
+Victor Nogueira
+Thiago Naves
