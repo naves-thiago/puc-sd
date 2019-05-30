@@ -2,10 +2,11 @@ local mqtt = require'mqtt'
 local socket = require'socket'
 local starttime
 local tries = 100000
-local atonce = 1000
+local atonce = tonumber(arg[1])
 local sent = 0
 local received = 0
 local intervals = {}
+local firststarttime
 
 client = mqtt.client{
 	uri = 'localhost',
@@ -18,6 +19,7 @@ function tacb()
 	local timetaken = 0
 	if sent < tries then
 		starttime = socket.gettime() * 1000
+		firststarttime = firststarttime or starttime
 		for i = 1, atonce do
 			assert(client:publish{
 				topic='t/a',
@@ -40,9 +42,10 @@ client:on{
 
 	message = function(msg)
 		assert(client:acknowledge(msg))
+		local endtime
 		received = received + 1
 		if received == sent then
-			local endtime = socket.gettime() * 1000
+			endtime = socket.gettime() * 1000
 			intervals[#intervals + 1] = endtime - starttime
 		end
 
@@ -56,10 +59,16 @@ client:on{
 				end
 			end
 
+			local function fmt(f, unity)
+				return string.format("%.4f %s", f, unity)
+			end
 			print('Messages: ' .. sent)
 			print('Block size: ' .. atonce)
-			print('Max: ' .. max)
-			print('Average: ' .. sum / sent)
+			print('Max: ' .. fmt(max / atonce, 'ms'))
+			print('Average: ' .. fmt(sum / sent, 'ms'))
+			print('Total transfer time: ' .. fmt(sum / 1000, 's'))
+			print('Total time: ' .. fmt((endtime - firststarttime) / 1000, 's'))
+			print('-------------------------')
 			assert(client:disconnect())
 		else
 			tacb()
