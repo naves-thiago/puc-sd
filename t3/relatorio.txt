@@ -1,0 +1,137 @@
+Jogo:
+
+O jogo escolhido para o trabalho foi damas. O critério para a escolha foi um jogo com regras simples e de turnos.
+Um jogo de turnos evita o problema de sincronizar o tempo entre os jogadores. Como não há um servidor centralizando a contagem do tempo, a passagem do tempo poderia divergir entre os jogadores. Dessa forma, apenas precisamos enviar mensagens informando a jogada realizada.
+Implementamos apenas as principais regras da versão brasileira do jogo de damas:
+- Peças comuns apenas andam para frente, uma casa por vez.
+- Damas podem andar pra trás e várias casas em uma jogada.
+- Apenas movimento nas diagonais.
+- Uma peça que chegue à última fileira adversária torna-se uma dama.
+- Tabuleiro de 8x8 casas com 3 fileiras de peças para cada jogador.
+- Peças comidas são retiradas de jogo.
+- Não pode comer a própria peça.
+- Só pode comer uma peça sem soltar a peça que está comendo.
+
+Regras não implementadas:
+- Cada jogador só pode mover suas próprias peças
+- Podendo uma peça comer várias em uma mesma jogada, esta o deve fazer (comendo o máximo possível, caso haja mais de uma opção).
+- Apenas 2 jogadores (pode-se conectar qualquer número de clientes e todos podem mover todas as peças).
+- O jogador com peças brancas joga primeiro.
+- Os jogadores alternam as cores das peças entre as partidas.
+
+Testes do Mosquito:
+
+Programa usando luamqtt enviando N mensagens por vez e esperando resposta antes de enviar novamente.
+Medimos o tempo entre o início do envio do bloco e o recebimento da última mensagem do mesmo.
+Dessas medidas, anotamos os tempos máximo e médio do envio de uma mensagem, a soma dos tempos de todos os blocos e o tempo entre o envio da primeira mensagem do primeiro bloco e o recebimento da última mensagem do último bloco.
+
+A primeira coisa que observamos é que a soma dos tempos de transferência dos blocos é (em geral) cerca de 1/4 do tempo total, o que é inesperado.
+Observamos que enviar uma mensagem por vez (N = 1) gera muito overhead, visto que os tempos são consideravelmente maiores que nos demais testes.
+Blocos menores parecem gerar maior variação no tempo de transferência, visto que os tempos médios não variam muito em cada teste, mas os tempos máximos sim.
+
+
+Resultados dos testes:
+Campos:
+- Mensagens: total de mensagens enviadas
+- Block size: número de mensagens enviadas por vez (N)
+- Max: Tempo máximo de transferência de uma mensagem (não do bloco)
+- Average: Tempo médio de transferência de uma mensagem (não do bloco)
+- Total transfer time: Soma dos tempos de transferência de todos os blocos
+- Total time: Diferença de tempo entre o envio da primeira mensagem e o recebimento da última
+
+Messages: 100000
+Block size: 1
+Max: 2.8611 ms
+Average: 0.1083 ms
+Total transfer time: 10.8256 s
+Total time: 10.9178 s
+-------------------------
+Messages: 100000
+Block size: 10
+Max: 94.9288 ms
+Average: 0.0095 ms
+Total transfer time: 0.9493 s
+Total time: 4.3432 s
+-------------------------
+Messages: 100000
+Block size: 100
+Max: 10.2889 ms
+Average: 0.0103 ms
+Total transfer time: 1.0289 s
+Total time: 4.2655 s
+-------------------------
+Messages: 100000
+Block size: 1000
+Max: 1.0611 ms
+Average: 0.0106 ms
+Total transfer time: 1.0611 s
+Total time: 4.2601 s
+-------------------------
+Messages: 100000
+Block size: 10000
+Max: 0.1379 ms
+Average: 0.0138 ms
+Total transfer time: 1.3785 s
+Total time: 4.3147 s
+-------------------------
+Messages: 100000
+Block size: 100000
+Max: 0.0427 ms
+Average: 0.0427 ms
+Total transfer time: 4.2672 s
+Total time: 4.2672 s
+-------------------------
+
+
+#################################################
+
+
+Messages: 1000000
+Block size: 1
+Max: 29.3252 ms
+Average: 0.1072 ms
+Total transfer time: 107.2483 s
+Total time: 108.2332 s
+-------------------------
+Messages: 1000000
+Block size: 10
+Max: 920.0232 ms
+Average: 0.0092 ms
+Total transfer time: 9.2002 s
+Total time: 43.9544 s
+-------------------------
+Messages: 1000000
+Block size: 100
+Max: 102.3205 ms
+Average: 0.0102 ms
+Total transfer time: 10.2321 s
+Total time: 43.1504 s
+-------------------------
+Messages: 1000000
+Block size: 1000
+Max: 10.4584 ms
+Average: 0.0105 ms
+Total transfer time: 10.4584 s
+Total time: 43.2209 s
+-------------------------
+Messages: 1000000
+Block size: 10000
+Max: 1.0636 ms
+Average: 0.0106 ms
+Total transfer time: 10.6364 s
+Total time: 43.2406 s
+-------------------------
+Messages: 1000000
+Block size: 100000
+Max: 0.1355 ms
+Average: 0.0135 ms
+Total transfer time: 13.5494 s
+Total time: 42.9705 s
+-------------------------
+Messages: 1000000
+Block size: 1000000
+Max: 0.0429 ms
+Average: 0.0429 ms
+Total transfer time: 42.8618 s
+Total time: 42.8618 s
+-------------------------
