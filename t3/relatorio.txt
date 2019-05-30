@@ -21,9 +21,14 @@ Regras não implementadas:
 
 
 Rodando o jogo:
-No diretório do arquivo main:
+Requer as seguintes bibliotecas, que podem ser instaladas pelo luarocks:
+- luasocket
+- binser
+- luamqtt
+
+No diretório do arquivo main, executar:
 $ love . id_do_cliente
-Para cada cliente.
+Para cada cliente com um id diferente.
 
 Testes do Mosquito:
 
@@ -48,8 +53,6 @@ Campos:
 Rodando o teste:
 No diretório do mqtt_test_client_2.lua
 $ lua mqtt_test_client_2.lua tamanho_do_bloco (<= 100000)
-
-Resultado dos testes:
 
 Messages: 100000
 Block size: 1
