@@ -1,0 +1,88 @@
+#include "/home/terra/TerraNG/terra/TerraNet.defs"
+
+// Formato das mensagens
+// Temperature:
+// {
+//   ubyte  type;          // Builtin
+//   ubyte  hops;
+//   ubyte  eventId;       // Evento correspondente
+//   ushort destinationId; // Destinatario
+//   short  temperature;
+// }
+
+// Agent:
+// {
+//   ubyte type;          // Builtin
+// 	 ubyte hops;          // Agent message hops
+//   ubyte events[9];     // Lista de ids
+//   ubyte eventsHops[9]; // Num hops correspondente a cada id
+// }
+
+// Query:
+// {
+// 	 ubyte  type;    // Builtin
+//   ubyte  hops;
+//   ubyte  eventId; // Evento desejado
+// 	 ushort origin;  // Remetente
+// }
+
+// Hello:
+// {
+//   ubyte type; // Builtin
+// }
+
+const ubyte TTL = 50;
+
+const ubyte TYPE_HELLO       = 1;
+const ubyte TYPE_AGENT       = 2;
+const ubyte TYPE_QUERY       = 3;
+const ubyte TYPE_TEMPERATURE = 4;
+
+pktype tempMsg from radioMsg with
+	var ubyte  hops;
+	var ubyte  eventId;
+	var ushort destinationId;
+	var short  temperature;
+end
+
+pktype agentMsg from radioMsg with
+	var ubyte hops;
+	var ubyte events[9];
+	var ubyte eventsHops[9];
+end
+
+pktype queryMsg from radioMsg with
+	var ubyte  hops;
+	var ubyte  eventId;
+	var ushort origin;
+end
+
+// --- exemplo de radio ---
+
+var ushort nodeId = getNodeId();
+var usrMsg sndData;
+var usrMsg recData;
+sndData.type=1;
+sndData.target = BROADCAST;
+sndData.source = nodeId;
+sndData.d32[0] = 0;
+
+
+if nodeId == 11 then
+par do
+	loop do
+		emit REQ_TEMP();
+		sndData.d16[0] = await TEMP;
+		emit SEND(sndData);
+		await SEND_DONE;
+		inc sndData.d8[0];
+		await 15s;
+	end
+with
+	loop do
+		recData = await RECEIVE;
+		emit LEDS(recData.d8[0]);
+	end
+end
+emit LED0(ON);
+end
