@@ -61,18 +61,46 @@ pktype helloMsg from radioMsg with
 end
 
 var ushort nodeId = getNodeId();
+var ushort[8] neighbours;
+var ubyte neighbourCount = 0;
+
 var helloMsg msgHello;
 msgHello.type = TYPE_HELLO;
 msgHello.target = BROADCAST;
 msgHello.source = nodeId;
-var ushort startTime = nodeId % 3;
-
-await (startTime)s;
-emit SEND(msgHello);
-await SEND_DONE;
-
-loop do
-	emit LED0(TOGGLE);
-	await 1s;
+var ushort startTime = (nodeId % 5) + 1;
+emit LEDS(0); // DEBUG
+par do
+	await (startTime)s;
+	emit SEND(msgHello);
+	await SEND_DONE;
+	await FOREVER;
+with
+	loop do
+		var helloMsg m = await RECEIVE(TYPE_HELLO);
+		var ubyte found = 0;
+		loop i,neighbourCount do  // i = 0~count-1
+			if neighbours[i] == m.source then
+				found = 1;
+				break;
+			end
+		end
+		if not found then
+			neighbours[neighbourCount] = m.source;
+			neighbourCount = neighbourCount + 1;
+		end
+		emit LEDS(neighbourCount); // DEBUG
+	end
+/*
+with
+	loop do
+		emit LED0(TOGGLE);
+		await 1s;
+	end
+*/
 end
+
+
+
+
 
