@@ -31,12 +31,12 @@
 //   ubyte type; // Builtin
 // }
 
-const ubyte TTL = 50;
+#define TTL 50
 
-const ubyte TYPE_HELLO       = 1;
-const ubyte TYPE_AGENT       = 2;
-const ubyte TYPE_QUERY       = 3;
-const ubyte TYPE_TEMPERATURE = 4;
+#define TYPE_HELLO        1
+#define TYPE_AGENT        2
+#define TYPE_QUERY        3
+#define TYPE_TEMPERATURE  4
 
 pktype tempMsg from radioMsg with
 	var ubyte  hops;
@@ -47,8 +47,8 @@ end
 
 pktype agentMsg from radioMsg with
 	var ubyte hops;
-	var ubyte events[9];
-	var ubyte eventsHops[9];
+	var ubyte[9] events;
+	var ubyte[9] eventsHops;
 end
 
 pktype queryMsg from radioMsg with
@@ -57,32 +57,22 @@ pktype queryMsg from radioMsg with
 	var ushort origin;
 end
 
-// --- exemplo de radio ---
+pktype helloMsg from radioMsg with
+end
 
 var ushort nodeId = getNodeId();
-var usrMsg sndData;
-var usrMsg recData;
-sndData.type=1;
-sndData.target = BROADCAST;
-sndData.source = nodeId;
-sndData.d32[0] = 0;
+var helloMsg msgHello;
+msgHello.type = TYPE_HELLO;
+msgHello.target = BROADCAST;
+msgHello.source = nodeId;
+var ushort startTime = nodeId % 3;
 
+await (startTime)s;
+emit SEND(msgHello);
+await SEND_DONE;
 
-if nodeId == 11 then
-par do
-	loop do
-		emit REQ_TEMP();
-		sndData.d16[0] = await TEMP;
-		emit SEND(sndData);
-		await SEND_DONE;
-		inc sndData.d8[0];
-		await 15s;
-	end
-with
-	loop do
-		recData = await RECEIVE;
-		emit LEDS(recData.d8[0]);
-	end
+loop do
+	emit LED0(TOGGLE);
+	await 1s;
 end
-emit LED0(ON);
-end
+
