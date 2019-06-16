@@ -64,14 +64,15 @@ var ushort nodeId = getNodeId();
 var ushort[8] neighbours;
 var ubyte neighbourCount = 0;
 
-var helloMsg msgHello;
-msgHello.type = TYPE_HELLO;
-msgHello.target = BROADCAST;
-msgHello.source = nodeId;
-var ushort startTime = (nodeId % 5) + 1;
 emit LEDS(0); // DEBUG
 par do
+	var ushort startTime = (nodeId % 5) + 1;
 	await (startTime)s;
+
+	var helloMsg msgHello;
+	msgHello.type = TYPE_HELLO;
+	msgHello.target = BROADCAST;
+	msgHello.source = nodeId;
 	emit SEND(msgHello);
 	await SEND_DONE;
 	await FOREVER;
@@ -94,9 +95,37 @@ with
 /*
 with
 	loop do
-		emit LED0(TOGGLE);
-		await 1s;
+		var agentMsg m = await RECEIVE(TYPE_AGENT);
+		// ...
+		// coloca mensagem na fila
 	end
+end
+*/
+/*
+with
+	loop do
+		var queryMsg m = await RECEIVE(TYPE_QUERY);
+		// ...
+		// coloca mensagem na fila
+	end
+end
+*/
+/*
+with
+	loop do
+		var tempMsg m = await RECEIVE(TYPE_TEMPERATURE);
+		// ...
+		// coloca mensagem na fila
+	end
+end
+*/
+/*
+with
+	loop do
+		// Tira da fila e envia
+
+	end
+end
 */
 end
 
