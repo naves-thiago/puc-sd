@@ -32,11 +32,12 @@
 // }
 
 #define TTL 50
+#define HOP_INVALID 255
 
-#define TYPE_HELLO        1
-#define TYPE_AGENT        2
-#define TYPE_QUERY        3
-#define TYPE_TEMPERATURE  4
+#define TYPE_HELLO       1
+#define TYPE_AGENT       2
+#define TYPE_QUERY       3
+#define TYPE_TEMPERATURE 4
 
 pktype tempMsg from radioMsg with
 	var ubyte  hops;
@@ -60,36 +61,57 @@ end
 pktype helloMsg from radioMsg with
 end
 
-var ushort nodeId = getNodeId();
+#define SEARCH(vec, count, value, res) \
+	res = -1;                          \
+	loop i,count do                    \
+		if vec[i] == value then        \
+			res = i;                   \
+			break;                     \
+		end                            \
+	end
+
+#define FILL(vec, count, value) \
+	loop i,count do             \
+		vec[i] = value;         \
+	end
+
+var ushort ourId = getNodeId();
 var ushort[8] neighbours;
 var ubyte neighbourCount = 0;
 
+var ushort[81] eventHop; // eventHop[event_id] = node_id
+
+var ubyte[81] nodeId;    // known nodes (ids)
+var ushort[81] nodeHop;  // node_id = nodeId[i]; hop = nodeHop[i]
+var ubyte nodeCount = 0;
+
 emit LEDS(0); // DEBUG
 par do
-	var ushort startTime = (nodeId % 5) + 1;
+	var ushort startTime = (ourId % 5) + 1;
 	await (startTime)s;
+
+	FILL(eventHop, 81, HOP_INVALID);
 
 	var helloMsg msgHello;
 	msgHello.type = TYPE_HELLO;
 	msgHello.target = BROADCAST;
-	msgHello.source = nodeId;
+	msgHello.source = ourId;
 	emit SEND(msgHello);
 	await SEND_DONE;
 	await FOREVER;
 with
 	loop do
 		var helloMsg m = await RECEIVE(TYPE_HELLO);
-		var ubyte found = 0;
-		loop i,neighbourCount do  // i = 0~count-1
-			if neighbours[i] == m.source then
-				found = 1;
-				break;
-			end
-		end
-		if not found then
+		var byte found;
+		SEARCH(neighbours, neighbourCount, m.source, found)
+		if found == -1 then
 			neighbours[neighbourCount] = m.source;
 			neighbourCount = neighbourCount + 1;
+			nodeId[nodeCount] = m.source;
+			nodeHop[nodeCount] = m.source;
+			nodeCount = nodeCount + 1;
 		end
+
 		emit LEDS(neighbourCount); // DEBUG
 	end
 /*
