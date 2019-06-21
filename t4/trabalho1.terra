@@ -1,36 +1,5 @@
 #include "/home/terra/TerraNG/terra/TerraNet.defs"
 
-// Formato das mensagens
-// Temperature:
-// {
-//   ubyte  type;          // Builtin
-//   ubyte  hops;
-//   ubyte  eventId;       // Evento correspondente
-//   ushort destinationId; // Destinatario
-//   short  temperature;
-// }
-
-// Agent:
-// {
-//   ubyte type;          // Builtin
-// 	 ubyte hops;          // Agent message hops
-//   ubyte events[9];     // Lista de ids
-//   ubyte eventsHops[9]; // Num hops correspondente a cada id
-// }
-
-// Query:
-// {
-// 	 ubyte  type;    // Builtin
-//   ubyte  hops;
-//   ubyte  eventId; // Evento desejado
-// 	 ushort origin;  // Remetente
-// }
-
-// Hello:
-// {
-//   ubyte type; // Builtin
-// }
-
 #define TTL 50
 #define HOP_INVALID 255
 
@@ -40,25 +9,25 @@
 #define TYPE_TEMPERATURE 4
 
 pktype tempMsg from radioMsg with
-	var ubyte  hops;
-	var ubyte  eventId;
-	var ushort destinationId;
-	var short  temperature;
+	var ubyte  hops;           // Hops dessa mensagem
+	var ubyte  eventId;        // ID do evento
+	var ushort destinationId;  // ID do destinatario
+	var short  temperature;    // Temperatura lida
 end
 
 pktype agentMsg from radioMsg with
-	var ubyte hops;
-	var ubyte[9] events;
-	var ubyte[9] eventsHops;
+	var ubyte hops;                // Hops dessa mensagem
+	var ubyte[9] events;           // Lista de IDs
+	var ubyte[9] eventsDistances;  // Distancia correspondente a cada ID
 end
 
 pktype queryMsg from radioMsg with
-	var ubyte  hops;
-	var ubyte  eventId;
-	var ushort origin;
+	var ubyte  hops;     // Hops dessa mensagem
+	var ubyte  eventId;  // ID do evento desejado
+	var ushort origin;   // ID do remetente
 end
 
-pktype helloMsg from radioMsg with
+pktype helloMsg from radioMsg with // Nao tem payload
 end
 
 #define SEARCH(vec, count, value, res) \
@@ -79,10 +48,12 @@ var ushort ourId = getNodeId();
 var ushort[8] neighbours;
 var ubyte neighbourCount = 0;
 
-var ushort[81] eventHop; // eventHop[event_id] = node_id
+var ushort[81] eventHop;     // EventHop[event_id] = next hop (node_id)
+var ubyte[81] eventDistance; // Number of hops in the route
 
-var ubyte[81] nodeId;    // known nodes (ids)
-var ushort[81] nodeHop;  // node_id = nodeId[i]; hop = nodeHop[i]
+var ubyte[81] nodeId;       // Known nodes (ids)
+var ushort[81] nodeHop;     // Node_id = nodeId[i]; hop = nodeHop[i]
+var ubyte[81] nodeDistance; // Number of hops in the route
 var ubyte nodeCount = 0;
 
 emit LEDS(0); // DEBUG
@@ -91,6 +62,7 @@ par do
 	await (startTime)s;
 
 	FILL(eventHop, 81, HOP_INVALID);
+	FILL(eventDistance, 81, 255);
 
 	var helloMsg msgHello;
 	msgHello.type = TYPE_HELLO;
@@ -109,6 +81,7 @@ with
 			neighbourCount = neighbourCount + 1;
 			nodeId[nodeCount] = m.source;
 			nodeHop[nodeCount] = m.source;
+			nodeDistance[nodeCount] = 1;
 			nodeCount = nodeCount + 1;
 		end
 
