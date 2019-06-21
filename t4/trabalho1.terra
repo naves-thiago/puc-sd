@@ -2,6 +2,7 @@
 
 #define TTL 50
 #define HOP_INVALID 255
+#define EVENT_INVALID 255
 
 #define TYPE_HELLO       1
 #define TYPE_AGENT       2
@@ -17,6 +18,7 @@ end
 
 pktype agentMsg from radioMsg with
 	var ubyte hops;                // Hops dessa mensagem
+	var ubyte nextHop;             // Vizinho alvo
 	var ubyte[9] events;           // Lista de IDs
 	var ubyte[9] eventsDistances;  // Distancia correspondente a cada ID
 end
@@ -45,8 +47,8 @@ end
 	end
 
 var ushort ourId = getNodeId();
-var ushort[8] neighbours;
-var ubyte neighbourCount = 0;
+var ushort[8] neighbors;
+var ubyte neighborCount = 0;
 
 var ushort[81] eventHop;     // EventHop[event_id] = next hop (node_id)
 var ubyte[81] eventDistance; // Number of hops in the route
@@ -57,7 +59,7 @@ var ubyte[81] nodeDistance; // Number of hops in the route
 var ubyte nodeCount = 0;
 
 emit LEDS(0); // DEBUG
-par do
+par do // -------- INIT --------
 	var ushort startTime = (ourId % 5) + 1;
 	await (startTime)s;
 
@@ -71,33 +73,54 @@ par do
 	emit SEND(msgHello);
 	await SEND_DONE;
 	await FOREVER;
-with
+with // -------- HELLO --------
 	loop do
 		var helloMsg m = await RECEIVE(TYPE_HELLO);
 		var byte found;
-		SEARCH(neighbours, neighbourCount, m.source, found)
+		SEARCH(neighbors, neighborCount, m.source, found)
 		if found == -1 then
-			neighbours[neighbourCount] = m.source;
-			neighbourCount = neighbourCount + 1;
+			neighbors[neighborCount] = m.source;
+			neighborCount = neighborCount + 1;
 			nodeId[nodeCount] = m.source;
 			nodeHop[nodeCount] = m.source;
 			nodeDistance[nodeCount] = 1;
 			nodeCount = nodeCount + 1;
 		end
 
-		emit LEDS(neighbourCount); // DEBUG
+//		emit LEDS(neighborCount); // DEBUG
 	end
-/*
-with
+with  // -------- AGENT --------
 	loop do
 		var agentMsg m = await RECEIVE(TYPE_AGENT);
-		// ...
-		// coloca mensagem na fila
+		var ubyte mEventCount = 0;
+		// Atualiza nossa tabela de rota de eventos
+		loop i,9 do
+			var ubyte id = m.events[i];
+			if id == EVENT_INVALID then
+				break;
+			end
+			mEventCount = mEventCount + 1;
+			if eventDistance[id] > m.eventsDistances[i] + 1 then
+				eventDistance[id] = m.eventsDistances[i] + 1;
+				eventHop[id] = m.source;
+			end
+		end
+
+		if m.hops < TTL and m.nextHop == ourId then
+			m.hops = m.hops + 1;
+			if mEventCount < 9 then
+				// TODO:
+				// Escolhe eventos da nossa tabela para
+				// colocar na mensagem
+			end
+			m.source = ourId;
+			m.nextHop = neighbors[random() % neighborCount];
+			// ...
+			qPut(m);
+		end
 	end
-end
-*/
 /*
-with
+with // -------- QUERY --------
 	loop do
 		var queryMsg m = await RECEIVE(TYPE_QUERY);
 		// ...
@@ -106,7 +129,7 @@ with
 end
 */
 /*
-with
+with // -------- TEMPERATURE --------
 	loop do
 		var tempMsg m = await RECEIVE(TYPE_TEMPERATURE);
 		// ...
@@ -115,7 +138,7 @@ with
 end
 */
 /*
-with
+with // -------- FILA --------
 	loop do
 		// Tira da fila e envia
 
