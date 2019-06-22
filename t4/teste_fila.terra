@@ -1,0 +1,49 @@
+#include "/home/terra/TerraNG/terra/TerraNet.defs"
+
+pktype helloMsg from radioMsg with // Nao tem payload
+end
+
+var ushort id = getNodeId();
+par do
+	var helloMsg m;
+	m.source = id;
+	m.type = 1;
+	m.target = BROADCAST;
+
+	await 1s;
+	if id == 11 then
+		qClear();
+		loop i,3 do
+			if qPut(m) == SUCCESS then
+				emit LED0(ON);
+			else
+				emit LED1(ON);
+			end
+		end
+	end
+	await FOREVER;
+with
+	var ubyte counter = 0;
+	loop do
+		var helloMsg m = await RECEIVE;
+		counter = counter + 1;
+		emit LEDS(counter);
+	end
+with
+	loop do
+		await Q_READY;
+		emit LED2(ON);
+		loop do
+			var helloMsg m;
+			var ubyte stat = qGet(m);
+			if stat == SUCCESS then
+				emit SEND(m);
+				await SEND_DONE;
+			else
+				break;
+			end
+		end
+	end
+end
+
+
