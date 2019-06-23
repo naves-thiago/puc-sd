@@ -3,6 +3,7 @@
 #define TTL 50
 #define HOP_INVALID 255
 #define EVENT_INVALID 255
+#define MAX_DISTANCE 255
 
 #define TYPE_HELLO       1
 #define TYPE_AGENT       2
@@ -50,12 +51,12 @@ var ushort ourId = getNodeId();
 var ushort[8] neighbors;
 var ubyte neighborCount = 0;
 
-var ushort[81] eventHop;     // EventHop[event_id] = next hop (node_id)
-var ubyte[81] eventDistance; // Number of hops in the route
+var ushort[10] eventHop;     // EventHop[event_id] = proximo hop (node_id)
+var ubyte[10] eventDistance; // Numero de hops na rota
 
-var ubyte[81] nodeId;       // Known nodes (ids)
-var ushort[81] nodeHop;     // Node_id = nodeId[i]; hop = nodeHop[i]
-var ubyte[81] nodeDistance; // Number of hops in the route
+var ubyte[10] nodeId;       // Nos conhecidos (ids)
+var ushort[10] nodeHop;     // Node_id = nodeId[i]; hop = nodeHop[i]
+var ubyte[10] nodeDistance; // Numero de hops na rota
 var ubyte nodeCount = 0;
 
 emit LEDS(0); // DEBUG
@@ -64,7 +65,8 @@ par do // -------- INIT --------
 	await (startTime)s;
 
 	FILL(eventHop, 81, HOP_INVALID);
-	FILL(eventDistance, 81, 255);
+	FILL(eventDistance, 81, MAX_DISTANCE);
+	qClear();
 
 	var helloMsg msgHello;
 	msgHello.type = TYPE_HELLO;
@@ -73,6 +75,7 @@ par do // -------- INIT --------
 	emit SEND(msgHello);
 	await SEND_DONE;
 	await FOREVER;
+
 with // -------- HELLO --------
 	loop do
 		var helloMsg m = await RECEIVE(TYPE_HELLO);
@@ -86,9 +89,9 @@ with // -------- HELLO --------
 			nodeDistance[nodeCount] = 1;
 			nodeCount = nodeCount + 1;
 		end
-
 //		emit LEDS(neighborCount); // DEBUG
 	end
+
 with  // -------- AGENT --------
 	loop do
 		var agentMsg m = await RECEIVE(TYPE_AGENT);
@@ -103,7 +106,13 @@ with  // -------- AGENT --------
 			if eventDistance[id] > m.eventsDistances[i] + 1 then
 				eventDistance[id] = m.eventsDistances[i] + 1;
 				eventHop[id] = m.source;
+				var ubyte tmp = eventDistance[id];
+				if tmp > 7 then
+					tmp = 7;
+				end
+				emit LEDS(tmp);
 			end
+			m.eventsDistances[i] = eventDistance[id];
 		end
 
 		if m.hops < TTL and m.nextHop == ourId then
@@ -114,11 +123,14 @@ with  // -------- AGENT --------
 				// colocar na mensagem
 			end
 			m.source = ourId;
+			// TODO nao mandar pra quem nos mandou
 			m.nextHop = neighbors[random() % neighborCount];
 			// ...
+			await 1s;
 			qPut(m);
 		end
 	end
+
 /*
 with // -------- QUERY --------
 	loop do
@@ -128,6 +140,7 @@ with // -------- QUERY --------
 	end
 end
 */
+
 /*
 with // -------- TEMPERATURE --------
 	loop do
@@ -137,17 +150,71 @@ with // -------- TEMPERATURE --------
 	end
 end
 */
-/*
+
 with // -------- FILA --------
 	loop do
-		// Tira da fila e envia
-
+		await Q_READY;
+		//emit LED2(ON);  // DEBUG
+		loop do
+			// Parece que podemos usar qualquer tipo de mensagem
+			// para repassar da fila pro radio
+			var helloMsg m;
+			var ubyte stat = qGet(m);
+			if stat == SUCCESS then
+				emit SEND(m);
+				await SEND_DONE;
+			else
+				break;
+			end
+		end
 	end
-end
+
+/*
+with // -------- TESTE DA FILA --------
+	if ourId == 11 then
+		await 1500ms;
+		var queryMsg m;
+		m.source = ourId;
+		m.target = BROADCAST;
+		m.type = TYPE_QUERY;
+		m.origin = 42;
+		qPut(m);
+	else
+		var queryMsg m;
+		m = await RECEIVE;
+		if m.origin == 42 then
+			emit LED1(ON);
+		end
+	end
+	await FOREVER;
 */
+
+with // -------- GERA EVENTOS --------
+	var ubyte above = FALSE;
+	loop do
+		emit REQ_TEMP;
+		var ushort temp = await TEMP;
+		if temp > 500 and not above then
+			above = TRUE;
+			var agentMsg m;
+			m.source = ourId;
+			m.target = BROADCAST;
+			m.type = TYPE_AGENT;
+			m.hops = 0;
+			// TODO nao mandar pra quem nos mandou
+			m.nextHop = neighbors[random() % neighborCount];
+
+			//m.events[0] = ourId; // Event ID
+			m.events[0] = 1; // Event ID
+			m.eventsDistances[0] = 0; // Tamanho da rota
+			// TODO adicionar rotas conhecidas (aleatorias)
+			m.events[1] = EVENT_INVALID;
+			qPut(m);
+		end
+		if temp <= 500 then
+			above = FALSE;
+		end
+		await 1s;
+	end
+	//await FOREVER;
 end
-
-
-
-
-
