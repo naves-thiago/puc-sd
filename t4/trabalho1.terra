@@ -110,7 +110,7 @@ with  // -------- AGENT --------
 				if tmp > 7 then
 					tmp = 7;
 				end
-				emit LEDS(tmp);
+				//emit LEDS(tmp);
 			end
 			m.eventsDistances[i] = eventDistance[id];
 		end
@@ -131,25 +131,47 @@ with  // -------- AGENT --------
 		end
 	end
 
-/*
 with // -------- QUERY --------
 	loop do
 		var queryMsg m = await RECEIVE(TYPE_QUERY);
-		// ...
-		// coloca mensagem na fila
-	end
-end
-*/
+		var tempMsg mt;
 
-/*
+		if m.hops < TTL then
+			m.hops = m.hops + 1;
+			if m.eventId == 1 then
+				emit REQ_TEMP;
+				mt.temperature = await TEMP;
+				mt.hops = 0;
+				mt.target = BROADCAST;
+				mt.type = TYPE_TEMPERATURE;
+				mt.destinationId = m.origin;
+				mt.eventId = 1;
+				mt.source = ourId;
+				//emit LED0(ON);
+				await 1s;
+				qPut(mt);
+			end
+			await 1s;
+			qPut(m);
+		end
+	end
+
 with // -------- TEMPERATURE --------
 	loop do
 		var tempMsg m = await RECEIVE(TYPE_TEMPERATURE);
+		if m.hops < TTL then
+			if m.eventId == 1 then
+				if m.temperature <= 500 then
+					emit LED1(ON);
+				end
+			end
+		end
+		//TODO tratar recebimento da mensagem de temperatura
+
+		//emit LED1(ON);
 		// ...
 		// coloca mensagem na fila
 	end
-end
-*/
 
 with // -------- FILA --------
 	loop do
@@ -190,12 +212,13 @@ with // -------- TESTE DA FILA --------
 */
 
 with // -------- GERA EVENTOS --------
-	var ubyte above = FALSE;
+	var ubyte above_temp = FALSE;
+	var ubyte above_photo = FALSE;
 	loop do
 		emit REQ_TEMP;
 		var ushort temp = await TEMP;
-		if temp > 500 and not above then
-			above = TRUE;
+		if temp > 500 and not above_temp then
+			above_temp = TRUE;
 			var agentMsg m;
 			m.source = ourId;
 			m.target = BROADCAST;
@@ -212,7 +235,25 @@ with // -------- GERA EVENTOS --------
 			qPut(m);
 		end
 		if temp <= 500 then
-			above = FALSE;
+			above_temp = FALSE;
+		end
+
+		emit REQ_PHOTO;
+		var ushort photo = await PHOTO;
+		if photo > 400 and not above_photo then
+			above_photo = TRUE;
+			var queryMsg m;
+			m.source = ourId;
+			m.origin = ourId;
+			m.target = BROADCAST;
+			m.type = TYPE_QUERY;
+			m.hops = 0;
+			m.eventId = 1;
+			qPut(m);
+		end
+
+		if photo <= 400 then
+			above_photo = FALSE;
 		end
 		await 1s;
 	end
