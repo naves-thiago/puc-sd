@@ -1,9 +1,12 @@
 #include "/home/terra/TerraNG/terra/TerraNet.defs"
 
-#define TTL 50
-#define HOP_INVALID 255
-#define EVENT_INVALID 255
-#define MAX_DISTANCE 255
+#define TTL 50             // Time to leave
+#define HOP_INVALID 255    // Codigo de no invalido (posicao vazia)
+#define EVENT_INVALID 255  // Codigo de evento invalido (posicao vazia)
+#define MAX_DISTANCE 255   // Tamanho maximo de uma rota
+#define MAX_ROUTES 10      // Tamanho da tabela de rotas
+#define MAX_EVENTS 10      // Quantidade maxima de ids de eventos
+#define AGENT_MAX_EVENTS 9 // Maximo de eventos que o agent pode carregar
 
 #define TYPE_HELLO       1
 #define TYPE_AGENT       2
@@ -35,28 +38,59 @@ end
 
 #define SEARCH(vec, count, value, res) \
 	res = -1;                          \
-	loop i,count do                    \
-		if vec[i] == value then        \
-			res = i;                   \
+	loop search_i,(count) do           \
+		if vec[search_i] == value then \
+			res = search_i;            \
 			break;                     \
 		end                            \
 	end
 
 #define FILL(vec, count, value) \
-	loop i,count do             \
-		vec[i] = value;         \
+	loop fill_i,(count) do      \
+		vec[fill_i] = value;    \
+	end
+
+#define AGENT_ADD_EVENT(m, index, start)                            \
+	loop aae_e,MAX_EVENTS do                                        \
+		var ubyte eventId = (aae_e + start) % MAX_EVENTS;           \
+		if eventHop[eventId] != EVENT_INVALID then                  \
+			/* Verifica se o evento ja ta na mensagem */            \
+			var ubyte found;                                        \
+			SEARCH(m.events, index-1, eventId, found)               \
+			if found == -1 then                                     \
+				m.events[index] = eventId;                          \
+				m.eventsDistances[index] = eventDistance[eventId];  \
+				break;                                              \
+			end                                                     \
+		end                                                         \
+	end
+
+#define AGENT_FILL_EVENTS(m)                                \
+	do                                                      \
+		var ubyte start = random() % MAX_EVENTS;            \
+		loop afe_i,9 do                                     \
+			if m.events[afe_i] == EVENT_INVALID then        \
+				AGENT_ADD_EVENT(m, afe_i, start)            \
+				if m.events[afe_i] == EVENT_INVALID then    \
+					/* Nao tem eventos suficientes para     \
+					   preencher a mensagem */              \
+					break;                                  \
+				end                                         \
+				start = (m.events[afe_i] + 1) % MAX_EVENTS; \
+			end
+		end
 	end
 
 var ushort ourId = getNodeId();
 var ushort[8] neighbors;
 var ubyte neighborCount = 0;
 
-var ushort[10] eventHop;     // EventHop[event_id] = proximo hop (node_id)
-var ubyte[10] eventDistance; // Numero de hops na rota
+var ushort[MAX_EVENTS] eventHop;     // EventHop[event_id] = proximo hop (node_id)
+var ubyte[MAX_EVENTS] eventDistance; // Numero de hops na rota
 
-var ubyte[10] nodeId;       // Nos conhecidos (ids)
-var ushort[10] nodeHop;     // Node_id = nodeId[i]; hop = nodeHop[i]
-var ubyte[10] nodeDistance; // Numero de hops na rota
+var ubyte[MAX_ROUTES] nodeId;       // Nos conhecidos (ids)
+var ushort[MAX_ROUTES] nodeHop;     // Node_id = nodeId[i]; hop = nodeHop[i]
+var ubyte[MAX_ROUTES] nodeDistance; // Numero de hops na rota
 var ubyte nodeCount = 0;
 
 emit LEDS(0); // DEBUG
@@ -64,8 +98,8 @@ par do // -------- INIT --------
 	var ushort startTime = (ourId % 5) + 1;
 	await (startTime)s;
 
-	FILL(eventHop, 81, HOP_INVALID);
-	FILL(eventDistance, 81, MAX_DISTANCE);
+	FILL(eventHop, MAX_EVENTS, HOP_INVALID);
+	FILL(eventDistance, MAX_EVENTS, MAX_DISTANCE);
 	qClear();
 
 	var helloMsg msgHello;
@@ -118,15 +152,14 @@ with  // -------- AGENT --------
 		if m.hops < TTL and m.nextHop == ourId then
 			m.hops = m.hops + 1;
 			if mEventCount < 9 then
-				// TODO:
 				// Escolhe eventos da nossa tabela para
 				// colocar na mensagem
+				AGENT_FILL_EVENTS(m)
 			end
 			m.source = ourId;
 			// TODO nao mandar pra quem nos mandou
 			m.nextHop = neighbors[random() % neighborCount];
 			// ...
-			await 1s;
 			qPut(m);
 		end
 	end
