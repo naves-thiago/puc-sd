@@ -55,8 +55,8 @@ end
 		var ubyte eventId = (aae_e + start) % MAX_EVENTS;           \
 		if eventHop[eventId] != EVENT_INVALID then                  \
 			/* Verifica se o evento ja ta na mensagem */            \
-			var ubyte found;                                        \
-			SEARCH(m.events, index-1, eventId, found)               \
+			var byte found;                                         \
+			SEARCH(m.events, index, eventId, found)                 \
 			if found == -1 then                                     \
 				m.events[index] = eventId;                          \
 				m.eventsDistances[index] = eventDistance[eventId];  \
@@ -77,8 +77,8 @@ end
 					break;                                  \
 				end                                         \
 				start = (m.events[afe_i] + 1) % MAX_EVENTS; \
-			end
-		end
+			end                                             \
+		end                                                 \
 	end
 
 var ushort ourId = getNodeId();
@@ -155,6 +155,8 @@ with  // -------- AGENT --------
 				// Escolhe eventos da nossa tabela para
 				// colocar na mensagem
 				AGENT_FILL_EVENTS(m)
+
+				// TODO atualizar eventos se a nossa rota for menor
 			end
 			m.source = ourId;
 			// TODO nao mandar pra quem nos mandou
