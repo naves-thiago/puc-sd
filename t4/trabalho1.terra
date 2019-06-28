@@ -21,10 +21,10 @@ pktype tempMsg from radioMsg with
 end
 
 pktype agentMsg from radioMsg with
-	var ubyte hops;                // Hops dessa mensagem
-	var ubyte nextHop;             // Vizinho alvo
-	var ubyte[9] events;           // Lista de IDs
-	var ubyte[9] eventsDistances;  // Distancia correspondente a cada ID
+	var ubyte hops;                               // Hops dessa mensagem
+	var ubyte nextHop;                            // Vizinho alvo
+	var ubyte[AGENT_MAX_EVENTS] events;           // Lista de IDs
+	var ubyte[AGENT_MAX_EVENTS] eventsDistances;  // Distancia correspondente a cada ID
 end
 
 pktype queryMsg from radioMsg with
@@ -38,7 +38,7 @@ end
 
 #define SEARCH(vec, count, value, res) \
 	res = -1;                          \
-	loop search_i,(count) do           \
+	loop search_i, (count) do          \
 		if vec[search_i] == value then \
 			res = search_i;            \
 			break;                     \
@@ -46,29 +46,33 @@ end
 	end
 
 #define FILL(vec, count, value) \
-	loop fill_i,(count) do      \
+	loop fill_i, (count) do     \
 		vec[fill_i] = value;    \
 	end
 
-#define AGENT_ADD_EVENT(m, index, start)                            \
-	loop aae_e,MAX_EVENTS do                                        \
-		var ubyte eventId = (aae_e + start) % MAX_EVENTS;           \
-		if eventHop[eventId] != EVENT_INVALID then                  \
-			/* Verifica se o evento ja ta na mensagem */            \
-			var byte found;                                         \
-			SEARCH(m.events, index, eventId, found)                 \
-			if found == -1 then                                     \
-				m.events[index] = eventId;                          \
-				m.eventsDistances[index] = eventDistance[eventId];  \
-				break;                                              \
-			end                                                     \
-		end                                                         \
+#define AGENT_ADD_EVENT(m, index, start)                              \
+	loop aae_e, MAX_EVENTS do                                         \
+		var ubyte eventId = (aae_e + start) % MAX_EVENTS;             \
+		if eventHop[eventId] != EVENT_INVALID then                    \
+			/* Verifica se o evento ja ta na mensagem */              \
+			var byte found;                                           \
+			SEARCH(m.events, index, eventId, found)                   \
+			if found == -1 then                                       \
+				m.events[index] = eventId;                            \
+				m.eventsDistances[index] = eventDistance[eventId];    \
+				break;                                                \
+			end                                                       \
+			/* Ja ta, mas o nosso e melhor */                         \
+			if m.eventsDistances[found] > eventDistance[eventId] then \
+				m.eventsDistances[found] = eventDistance[eventId];    \
+			end                                                       \
+		end                                                           \
 	end
 
 #define AGENT_FILL_EVENTS(m)                                \
 	do                                                      \
 		var ubyte start = random() % MAX_EVENTS;            \
-		loop afe_i,9 do                                     \
+		loop afe_i, AGENT_MAX_EVENTS do                     \
 			if m.events[afe_i] == EVENT_INVALID then        \
 				AGENT_ADD_EVENT(m, afe_i, start)            \
 				if m.events[afe_i] == EVENT_INVALID then    \
@@ -93,10 +97,11 @@ var ushort[MAX_ROUTES] nodeHop;     // Node_id = nodeId[i]; hop = nodeHop[i]
 var ubyte[MAX_ROUTES] nodeDistance; // Numero de hops na rota
 var ubyte nodeCount = 0;
 
+var ushort sendDelay = (ourId % 5) + 1; // Delay para evitar que todos mandem ao mesmo tempo
+
 emit LEDS(0); // DEBUG
 par do // -------- INIT --------
-	var ushort startTime = (ourId % 5) + 1;
-	await (startTime)s;
+	await (sendDelay)s;
 
 	FILL(eventHop, MAX_EVENTS, HOP_INVALID);
 	FILL(eventDistance, MAX_EVENTS, MAX_DISTANCE);
@@ -123,43 +128,37 @@ with // -------- HELLO --------
 			nodeDistance[nodeCount] = 1;
 			nodeCount = nodeCount + 1;
 		end
-//		emit LEDS(neighborCount); // DEBUG
 	end
 
 with  // -------- AGENT --------
 	loop do
 		var agentMsg m = await RECEIVE(TYPE_AGENT);
-		var ubyte mEventCount = 0;
 		// Atualiza nossa tabela de rota de eventos
-		loop i,9 do
+		loop i, AGENT_MAX_EVENTS do
 			var ubyte id = m.events[i];
 			if id == EVENT_INVALID then
 				break;
 			end
-			mEventCount = mEventCount + 1;
-			if eventDistance[id] > m.eventsDistances[i] + 1 then
-				eventDistance[id] = m.eventsDistances[i] + 1;
+			if eventDistance[id] > m.eventsDistances[i] then
+				eventDistance[id] = m.eventsDistances[i];
 				eventHop[id] = m.source;
-				var ubyte tmp = eventDistance[id];
-				if tmp > 7 then
-					tmp = 7;
-				end
-				//emit LEDS(tmp);
 			end
-			m.eventsDistances[i] = eventDistance[id];
 		end
+
+		emit LEDS(eventDistance[1]); // DEBUG
 
 		if m.hops < TTL and m.nextHop == ourId then
 			m.hops = m.hops + 1;
-			if mEventCount < 9 then
-				// Escolhe eventos da nossa tabela para
-				// colocar na mensagem
-				AGENT_FILL_EVENTS(m)
-
-				// TODO atualizar eventos se a nossa rota for menor
+			// Escolhe eventos da nossa tabela para
+			// colocar na mensagem. Tambem atualiza
+			// rotas se soubermos uma menor
+			AGENT_FILL_EVENTS(m)
+			loop i, AGENT_MAX_EVENTS do
+				m.eventsDistances[i] = m.eventsDistances[i] + 1;
 			end
 			m.source = ourId;
 			// TODO nao mandar pra quem nos mandou
+			// (bota no fim da lista e faz random % (count-1))
 			m.nextHop = neighbors[random() % neighborCount];
 			// ...
 			qPut(m);
@@ -211,11 +210,11 @@ with // -------- TEMPERATURE --------
 with // -------- FILA --------
 	loop do
 		await Q_READY;
-		//emit LED2(ON);  // DEBUG
+		await (sendDelay * 100)ms;
 		loop do
 			// Parece que podemos usar qualquer tipo de mensagem
 			// para repassar da fila pro radio
-			var helloMsg m;
+			var agentMsg m;
 			var ubyte stat = qGet(m);
 			if stat == SUCCESS then
 				emit SEND(m);
