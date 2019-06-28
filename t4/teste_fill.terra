@@ -8,11 +8,12 @@ pktype agentMsg from radioMsg with
 end
 
 #define MAX_EVENTS 10      // Quantidade maxima de ids de eventos
+#define AGENT_MAX_EVENTS 9 // Maximo de eventos que o agent pode carregar
 #define EVENT_INVALID 255  // Codigo de evento invalido (posicao vazia)
 
 #define SEARCH(vec, count, value, res) \
 	res = -1;                          \
-	loop search_i,(count) do           \
+	loop search_i, (count) do          \
 		if vec[search_i] == value then \
 			res = search_i;            \
 			break;                     \
@@ -20,30 +21,34 @@ end
 	end
 
 #define FILL(vec, count, value) \
-	loop fill_i,(count) do      \
+	loop fill_i, (count) do     \
 		vec[fill_i] = value;    \
 	end
 
-#define AGENT_ADD_EVENT(m, index, start)                            \
-	loop aae_e,MAX_EVENTS do                                        \
-		var ubyte eventId = (aae_e + start) % MAX_EVENTS;           \
-		if eventHop[eventId] != EVENT_INVALID then                  \
-			/* Verifica se o evento ja ta na mensagem */            \
-			var byte found;                                         \
-			SEARCH(m.events, index, eventId, found)                 \
-			if found == -1 then                                     \
-				m.events[index] = eventId;                          \
-				m.eventsDistances[index] = eventDistance[eventId];  \
-				break;                                              \
-			end                                                     \
-		end                                                         \
+#define AGENT_ADD_EVENT(m, index, start)                              \
+	loop aae_e, MAX_EVENTS do                                         \
+		var ubyte eventId = (aae_e + start) % MAX_EVENTS;             \
+		if eventHop[eventId] != EVENT_INVALID then                    \
+			/* Verifica se o evento ja ta na mensagem */              \
+			var byte found;                                           \
+			SEARCH(m.events, index, eventId, found)                   \
+			if found == -1 then                                       \
+				m.events[index] = eventId;                            \
+				m.eventsDistances[index] = eventDistance[eventId];    \
+				break;                                                \
+			end                                                       \
+			/* Ja ta, mas o nosso e melhor */                         \
+			if m.eventsDistances[found] > eventDistance[eventId] then \
+				m.eventsDistances[found] = eventDistance[eventId];    \
+			end                                                       \
+		end                                                           \
 	end
 
 #define AGENT_FILL_EVENTS(m)                                \
 	do                                                      \
 		/* var ubyte start = random() % MAX_EVENTS;  */     \
 		var ubyte start = 5;                                \
-		loop afe_i,9 do                                     \
+		loop afe_i, AGENT_MAX_EVENTS do                     \
 			if m.events[afe_i] == EVENT_INVALID then        \
 				AGENT_ADD_EVENT(m, afe_i, start)            \
 				if m.events[afe_i] == EVENT_INVALID then    \
@@ -79,12 +84,14 @@ await 1s; // IMPORTANTE
 emit LEDS(0);
 FILL(eventHop, MAX_EVENTS, EVENT_INVALID)
 FILL(eventDistance, MAX_EVENTS, 10)
+eventDistance[0] = 1;
 
 var agentMsg msg;
-FILL(msg.events, 9, EVENT_INVALID)
+FILL(msg.events, AGENT_MAX_EVENTS, EVENT_INVALID)
 msg.events[0] = 0;
-msg.eventsDistances[0] = 2;
+msg.eventsDistances[0] = 3;
 msg.events[1] = 1;
+msg.eventsDistances[1] = 2;
 
 loop i, MAX_EVENTS do
 	eventHop[i] = i + 1;
@@ -94,7 +101,7 @@ end
 
 AGENT_FILL_EVENTS(msg)
 
-loop i, 9 do
+loop i, AGENT_MAX_EVENTS do
 	debug.a = i;
 	debug.b = msg.events[i];
 	debug.c = msg.eventsDistances[i];
