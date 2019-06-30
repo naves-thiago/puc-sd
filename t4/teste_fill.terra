@@ -4,7 +4,7 @@ pktype agentMsg from radioMsg with
 	var ubyte hops;                // Hops dessa mensagem
 	var ubyte nextHop;             // Vizinho alvo
 //	var ubyte[9] events;           // Lista de IDs
-	var ubyte[9] eventsDistances;  // Distancia correspondente a cada ID
+	var ubyte[9] eventDistance;  // Distancia correspondente a cada ID
 end
 
 #define MAX_EVENTS 9       // Quantidade maxima de ids de eventos
@@ -34,12 +34,12 @@ end
 //			SEARCH(m.events, index, eventId, found)                   \
 //			if found == -1 then                                       \
 //				m.events[index] = eventId;                            \
-//				m.eventsDistances[index] = eventDistance[eventId];    \
+//				m.eventDistance[index] = eventDistance[eventId];      \
 //				break;                                                \
 //			end                                                       \
 //			/* Ja ta, mas o nosso e melhor */                         \
-//			if m.eventsDistances[found] > eventDistance[eventId] then \
-//				m.eventsDistances[found] = eventDistance[eventId];    \
+//			if m.eventDistance[found] > eventDistance[eventId] then   \
+//				m.eventDistance[found] = eventDistance[eventId];      \
 //			end                                                       \
 //		end                                                           \
 //	end
@@ -64,13 +64,13 @@ end
 
 #define AGENT_MERGE_EVENTS(m)                            \
 	loop i, MAX_EVENTS do                                \
-		if m.eventsDistances[i] < eventDistance[i] then  \
-			eventDistance[i] = m.eventsDistances[i];     \
+		if m.eventDistance[i] < eventDistance[i] then    \
+			eventDistance[i] = m.eventDistance[i];       \
 			eventHop[i] = m.source;                      \
 		else                                             \
-			m.eventsDistances[i] = eventDistance[i];    \
+			m.eventDistance[i] = eventDistance[i];       \
 		end                                              \
-		m.eventsDistances[i] = m.eventsDistances[i] + 1; \
+		m.eventDistance[i] = m.eventDistance[i] + 1;     \
 	end
 
 pktype debugMsg from radioMsg with
@@ -99,9 +99,9 @@ eventDistance[0] = 1;
 eventDistance[5] = 2;
 
 var agentMsg msg;
-FILL(msg.eventsDistances, MAX_EVENTS, EVENT_INVALID)
-msg.eventsDistances[0] = 3;
-msg.eventsDistances[1] = 2;
+FILL(msg.eventDistance, MAX_EVENTS, EVENT_INVALID)
+msg.eventDistance[0] = 3;
+msg.eventDistance[1] = 2;
 
 loop i, MAX_EVENTS do
 	eventHop[i] = i + 1;
@@ -111,7 +111,7 @@ AGENT_MERGE_EVENTS(msg)
 
 loop i, MAX_EVENTS do
 	debug.a = i;
-	debug.b = msg.eventsDistances[i];
+	debug.b = msg.eventDistance[i];
 	debug.c = eventDistance[i];
 	emit SEND(debug);
 	await SEND_DONE;
@@ -145,7 +145,7 @@ if msg.events[2] != 3 then
 	await FOREVER;
 end
 
-if msg.eventsDistances[0] != 2 then
+if msg.eventDistance[0] != 2 then
 	emit LEDS(5);
 	await FOREVER;
 end
