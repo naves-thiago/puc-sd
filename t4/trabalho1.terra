@@ -14,6 +14,7 @@
 
 pktype tempMsg from radioMsg with
 	var ubyte  hops;           // Hops dessa mensagem
+	var ubyte  nextHop;        // Vizinho alvo
 	var ubyte  eventId;        // ID do evento
 	var ushort destinationId;  // ID do destinatario
 	var short  temperature;    // Temperatura lida
@@ -81,6 +82,8 @@ par do // -------- INIT --------
 
 	FILL(eventHop, MAX_EVENTS, HOP_INVALID)
 	FILL(eventDistance, MAX_EVENTS, MAX_DISTANCE)
+	FILL(nodeId, MAX_ROUTES, HOP_INVALID)
+	FILL(nodeDistance, MAX_ROUTES, MAX_DISTANCE)
 	qClear();
 
 	var helloMsg msgHello;
@@ -135,7 +138,7 @@ with  // -------- AGENT --------
 			qPut(m);
 		end
 
-		emit LEDS(eventDistance[1]); // DEBUG
+		//emit LEDS(eventDistance[1]); // DEBUG
 	end
 
 with // -------- QUERY --------
@@ -145,11 +148,13 @@ with // -------- QUERY --------
 
 		// Adiciona / atualiza rota para origem
 		// TODO testar
+		m.hops = m.hops + 1;
 		var byte found;
 		SEARCH(nodeId, nodeCount, m.origin, found)
 		if found == -1 then
 			found = nodeCount;
 			nodeCount = nodeCount + 1;
+			emit LED1(ON);
 		end
 		if nodeDistance[found] > m.hops then
 			nodeId[found] = m.origin;
@@ -158,8 +163,9 @@ with // -------- QUERY --------
 		end
 
 		if m.nextHop == ourId then
-			m.hops = m.hops + 1;
-			if m.eventId == 1 then // TODO configurar ID pra nos diferentes
+			//if m.eventId == 1 and ourId == 11 then // TODO configurar ID pra nos diferentes
+			if ourId == 11 then // TODO configurar ID pra nos diferentes
+				emit LED2(ON);
 				emit REQ_TEMP;
 				mt.temperature = await TEMP;
 				mt.hops = 0;
@@ -168,34 +174,51 @@ with // -------- QUERY --------
 				mt.destinationId = m.origin;
 				mt.eventId = 1;
 				mt.source = ourId;
-				//emit LED0(ON);
 				qPut(mt);
 			else
 				if m.hops < TTL then
 					// Apenas repassa
 					m.nextHop = eventHop[m.eventId];
+					m.source = ourId;
 					if m.nextHop == EVENT_INVALID then
 						// TODO nao mandar pra quem nos mandou
 						m.nextHop = neighbors[random() % neighborCount];
+					else
+						emit LED0(ON);
 					end
-
 					qPut(m);
 				end
 			end
 		end
 	end
 
-with // -------- TEMPERATURE --------
-	loop do
-		var tempMsg m = await RECEIVE(TYPE_TEMPERATURE);
-		if m.hops < TTL then
-			// TODO configurar ID pra nos diferentes
-			if m.eventId == 1 and m.temperature <= 500 then
-				emit LED1(ON);
-			end
-		end
-	end
-
+//with // -------- TEMPERATURE --------
+//	loop do
+//		var tempMsg m = await RECEIVE(TYPE_TEMPERATURE);
+//		if m.hops < TTL and m.nextHop == ourId then
+//			// TODO configurar ID pra nos diferentes
+//			//if m.destinationId == ourId and m.temperature > 500 then
+//			if m.destinationId == ourId then
+//				emit LED1(ON);
+//			else
+//				// Tem que existir uma rota conhecida
+//				var byte found;
+//				SEARCH(nodeId, nodeCount, m.destinationId, found)
+//				//if found == -1 then
+//				//	// Nao deveria ocorrer
+//				//	loop do
+//				//		emit LED1(TOGGLE);
+//				//		await 1s;
+//				//	end
+//				//end
+//				m.nextHop = nodeHop[found];
+//				m.hops = m.hops + 1;
+//				qPut(m);
+//				emit LED2(ON);
+//			end
+//		end
+//	end
+//
 with // -------- FILA --------
 	loop do
 		await Q_READY;
@@ -265,6 +288,7 @@ with // -------- GERA EVENTOS --------
 			m.target = BROADCAST;
 			m.type = TYPE_QUERY;
 			m.hops = 0;
+			m.nextHop = neighbors[random() % neighborCount];
 			m.eventId = 1;
 			qPut(m);
 		end
