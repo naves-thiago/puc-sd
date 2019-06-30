@@ -4,9 +4,8 @@
 #define HOP_INVALID 255    // Codigo de no invalido (posicao vazia)
 #define EVENT_INVALID 255  // Codigo de evento invalido (posicao vazia)
 #define MAX_DISTANCE 255   // Tamanho maximo de uma rota
-#define MAX_ROUTES 5       // Tamanho da tabela de rotas
+#define MAX_ROUTES 10      // Tamanho da tabela de rotas (inclui vizinhos)
 #define MAX_EVENTS 5       // Quantidade maxima de ids de eventos
-#define AGENT_MAX_EVENTS 2 // Maximo de eventos que o agent pode carregar
 
 #define TYPE_HELLO       1
 #define TYPE_AGENT       2
@@ -21,10 +20,9 @@ pktype tempMsg from radioMsg with
 end
 
 pktype agentMsg from radioMsg with
-	var ubyte hops;                               // Hops dessa mensagem
-	var ubyte nextHop;                            // Vizinho alvo
-	var ubyte[AGENT_MAX_EVENTS] events;           // Lista de IDs
-	var ubyte[AGENT_MAX_EVENTS] eventsDistances;  // Distancia correspondente a cada ID
+	var ubyte hops;                       // Hops dessa mensagem
+	var ubyte nextHop;                    // Vizinho alvo
+	var ubyte[MAX_EVENTS] eventDistance;  // Distancia correspondente a cada ID
 end
 
 pktype queryMsg from radioMsg with
@@ -51,40 +49,17 @@ end
 		vec[fill_i] = value;    \
 	end
 
-#define AGENT_ADD_EVENT(m, index, start)                              \
-	loop aae_e, MAX_EVENTS do                                         \
-		var ubyte eventId = (aae_e + start) % MAX_EVENTS;             \
-		if eventHop[eventId] != EVENT_INVALID then                    \
-			/* Verifica se o evento ja ta na mensagem */              \
-			var byte found;                                           \
-			SEARCH(m.events, index, eventId, found)                   \
-			if found == -1 then                                       \
-				m.events[index] = eventId;                            \
-				m.eventsDistances[index] = eventDistance[eventId];    \
-				break;                                                \
-			end                                                       \
-			/* Ja ta, mas o nosso e melhor */                         \
-			if m.eventsDistances[found] > eventDistance[eventId] then \
-				m.eventsDistances[found] = eventDistance[eventId];    \
-			end                                                       \
-		end                                                           \
+#define AGENT_MERGE_EVENTS(m)                            \
+	loop i, MAX_EVENTS do                                \
+		if m.eventDistance[i] < eventDistance[i] then    \
+			eventDistance[i] = m.eventDistance[i];       \
+			eventHop[i] = m.source;                      \
+		else                                             \
+			m.eventDistance[i] = eventDistance[i];       \
+		end                                              \
+		m.eventDistance[i] = m.eventDistance[i] + 1;     \
 	end
 
-#define AGENT_FILL_EVENTS(m)                                \
-	do                                                      \
-		var ubyte start = random() % MAX_EVENTS;            \
-		loop afe_i, AGENT_MAX_EVENTS do                     \
-			if m.events[afe_i] == EVENT_INVALID then        \
-				AGENT_ADD_EVENT(m, afe_i, start)            \
-				if m.events[afe_i] == EVENT_INVALID then    \
-					/* Nao tem eventos suficientes para     \
-					   preencher a mensagem */              \
-					break;                                  \
-				end                                         \
-				start = (m.events[afe_i] + 1) % MAX_EVENTS; \
-			end                                             \
-		end                                                 \
-	end
 
 var ushort ourId = getNodeId();
 var ushort[8] neighbors;
@@ -100,22 +75,23 @@ var ubyte nodeCount = 0;
 
 var ushort sendDelay = (ourId % 5) + 1; // Delay para evitar que todos mandem ao mesmo tempo
 
-emit LEDS(0); // DEBUG
-await (sendDelay)s;
-
-FILL(eventHop, MAX_EVENTS, HOP_INVALID);
-FILL(eventDistance, MAX_EVENTS, MAX_DISTANCE);
-qClear();
-
-var helloMsg msgHello;
-msgHello.type = TYPE_HELLO;
-msgHello.target = BROADCAST;
-msgHello.source = ourId;
-emit SEND(msgHello);
-await SEND_DONE;
-
 par do // -------- INIT --------
-//with // -------- HELLO --------
+	emit LEDS(0); // DEBUG
+	await (sendDelay)s;
+
+	FILL(eventHop, MAX_EVENTS, HOP_INVALID)
+	FILL(eventDistance, MAX_EVENTS, MAX_DISTANCE)
+	qClear();
+
+	var helloMsg msgHello;
+	msgHello.type = TYPE_HELLO;
+	msgHello.target = BROADCAST;
+	msgHello.source = ourId;
+	emit SEND(msgHello);
+	await SEND_DONE;
+	await FOREVER;
+
+with // -------- HELLO --------
 	loop do
 		var helloMsg m = await RECEIVE(TYPE_HELLO);
 		var byte found;
@@ -128,34 +104,29 @@ par do // -------- INIT --------
 			nodeDistance[nodeCount] = 1;
 			nodeCount = nodeCount + 1;
 		end
+		//emit LEDS(nodeCount & 7);
 	end
 
 with  // -------- AGENT --------
 	loop do
 		var agentMsg m = await RECEIVE(TYPE_AGENT);
-		// Atualiza nossa tabela de rota de eventos
-		loop i, AGENT_MAX_EVENTS do
-			var ubyte id = m.events[i];
-			if id == EVENT_INVALID then
-				break;
-			end
-			if eventDistance[id] > m.eventsDistances[i] then
-				eventDistance[id] = m.eventsDistances[i];
-				eventHop[id] = m.source;
-			end
-		end
+		AGENT_MERGE_EVENTS(m)
 
-		emit LEDS(eventDistance[1]); // DEBUG
+		// Detecta vizinho
+//		var byte found;
+//		SEARCH(nodeId, nodeCount, m.source, found)
+//		if found == -1 then
+//			found = nodeCount;
+//			nodeCount = nodeCount + 1;
+//		end
+//		if nodeDistance[found] > m.hops then
+//			nodeId[found] = m.origin;
+//			nodeHop[found] = m.source;
+//			nodeDistance[found] = m.hops;
+//		end
 
 		if m.hops < TTL and m.nextHop == ourId then
 			m.hops = m.hops + 1;
-			// Escolhe eventos da nossa tabela para
-			// colocar na mensagem. Tambem atualiza
-			// rotas se soubermos uma menor
-			AGENT_FILL_EVENTS(m)
-			loop i, AGENT_MAX_EVENTS do
-				m.eventsDistances[i] = m.eventsDistances[i] + 1;
-			end
 			m.source = ourId;
 			// TODO nao mandar pra quem nos mandou
 			// (bota no fim da lista e faz random % (count-1))
@@ -163,6 +134,8 @@ with  // -------- AGENT --------
 			// ...
 			qPut(m);
 		end
+
+		emit LEDS(eventDistance[1]); // DEBUG
 	end
 
 with // -------- QUERY --------
@@ -272,15 +245,10 @@ with // -------- GERA EVENTOS --------
 			m.source = ourId;
 			m.target = BROADCAST;
 			m.type = TYPE_AGENT;
+			FILL(m.eventDistance, MAX_EVENTS, EVENT_INVALID)
 			m.hops = 0;
-			// TODO nao mandar pra quem nos mandou
 			m.nextHop = neighbors[random() % neighborCount];
-
-			//m.events[0] = ourId; // Event ID
-			m.events[0] = 1; // Event ID
-			m.eventsDistances[0] = 0; // Tamanho da rota
-			// TODO adicionar rotas conhecidas (aleatorias)
-			m.events[1] = EVENT_INVALID;
+			m.eventDistance[1] = 0;
 			qPut(m);
 		end
 		if temp <= 500 then
