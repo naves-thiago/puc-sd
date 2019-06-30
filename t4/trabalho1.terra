@@ -4,9 +4,9 @@
 #define HOP_INVALID 255    // Codigo de no invalido (posicao vazia)
 #define EVENT_INVALID 255  // Codigo de evento invalido (posicao vazia)
 #define MAX_DISTANCE 255   // Tamanho maximo de uma rota
-#define MAX_ROUTES 10      // Tamanho da tabela de rotas
-#define MAX_EVENTS 10      // Quantidade maxima de ids de eventos
-#define AGENT_MAX_EVENTS 9 // Maximo de eventos que o agent pode carregar
+#define MAX_ROUTES 5       // Tamanho da tabela de rotas
+#define MAX_EVENTS 5       // Quantidade maxima de ids de eventos
+#define AGENT_MAX_EVENTS 2 // Maximo de eventos que o agent pode carregar
 
 #define TYPE_HELLO       1
 #define TYPE_AGENT       2
@@ -29,6 +29,7 @@ end
 
 pktype queryMsg from radioMsg with
 	var ubyte  hops;     // Hops dessa mensagem
+	var ubyte  nextHop;  // Vizinho alvo
 	var ubyte  eventId;  // ID do evento desejado
 	var ushort origin;   // ID do remetente
 end
@@ -100,22 +101,21 @@ var ubyte nodeCount = 0;
 var ushort sendDelay = (ourId % 5) + 1; // Delay para evitar que todos mandem ao mesmo tempo
 
 emit LEDS(0); // DEBUG
+await (sendDelay)s;
+
+FILL(eventHop, MAX_EVENTS, HOP_INVALID);
+FILL(eventDistance, MAX_EVENTS, MAX_DISTANCE);
+qClear();
+
+var helloMsg msgHello;
+msgHello.type = TYPE_HELLO;
+msgHello.target = BROADCAST;
+msgHello.source = ourId;
+emit SEND(msgHello);
+await SEND_DONE;
+
 par do // -------- INIT --------
-	await (sendDelay)s;
-
-	FILL(eventHop, MAX_EVENTS, HOP_INVALID);
-	FILL(eventDistance, MAX_EVENTS, MAX_DISTANCE);
-	qClear();
-
-	var helloMsg msgHello;
-	msgHello.type = TYPE_HELLO;
-	msgHello.target = BROADCAST;
-	msgHello.source = ourId;
-	emit SEND(msgHello);
-	await SEND_DONE;
-	await FOREVER;
-
-with // -------- HELLO --------
+//with // -------- HELLO --------
 	loop do
 		var helloMsg m = await RECEIVE(TYPE_HELLO);
 		var byte found;
@@ -170,9 +170,23 @@ with // -------- QUERY --------
 		var queryMsg m = await RECEIVE(TYPE_QUERY);
 		var tempMsg mt;
 
-		if m.hops < TTL then
+		// Adiciona / atualiza rota para origem
+		// TODO testar
+		var byte found;
+		SEARCH(nodeId, nodeCount, m.origin, found)
+		if found == -1 then
+			found = nodeCount;
+			nodeCount = nodeCount + 1;
+		end
+		if nodeDistance[found] > m.hops then
+			nodeId[found] = m.origin;
+			nodeHop[found] = m.source;
+			nodeDistance[found] = m.hops;
+		end
+
+		if m.nextHop == ourId then
 			m.hops = m.hops + 1;
-			if m.eventId == 1 then
+			if m.eventId == 1 then // TODO configurar ID pra nos diferentes
 				emit REQ_TEMP;
 				mt.temperature = await TEMP;
 				mt.hops = 0;
@@ -182,11 +196,19 @@ with // -------- QUERY --------
 				mt.eventId = 1;
 				mt.source = ourId;
 				//emit LED0(ON);
-				await 1s;
 				qPut(mt);
+			else
+				if m.hops < TTL then
+					// Apenas repassa
+					m.nextHop = eventHop[m.eventId];
+					if m.nextHop == EVENT_INVALID then
+						// TODO nao mandar pra quem nos mandou
+						m.nextHop = neighbors[random() % neighborCount];
+					end
+
+					qPut(m);
+				end
 			end
-			await 1s;
-			qPut(m);
 		end
 	end
 
@@ -194,17 +216,11 @@ with // -------- TEMPERATURE --------
 	loop do
 		var tempMsg m = await RECEIVE(TYPE_TEMPERATURE);
 		if m.hops < TTL then
-			if m.eventId == 1 then
-				if m.temperature <= 500 then
-					emit LED1(ON);
-				end
+			// TODO configurar ID pra nos diferentes
+			if m.eventId == 1 and m.temperature <= 500 then
+				emit LED1(ON);
 			end
 		end
-		//TODO tratar recebimento da mensagem de temperatura
-
-		//emit LED1(ON);
-		// ...
-		// coloca mensagem na fila
 	end
 
 with // -------- FILA --------
@@ -215,8 +231,7 @@ with // -------- FILA --------
 			// Parece que podemos usar qualquer tipo de mensagem
 			// para repassar da fila pro radio
 			var agentMsg m;
-			var ubyte stat = qGet(m);
-			if stat == SUCCESS then
+			if qGet(m) == SUCCESS then
 				emit SEND(m);
 				await SEND_DONE;
 			else
