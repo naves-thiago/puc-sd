@@ -16,7 +16,7 @@ pktype tempMsg from radioMsg with
 	var ubyte  hops;           // Hops dessa mensagem
 	var ubyte  nextHop;        // Vizinho alvo
 	var ubyte  eventId;        // ID do evento
-	var ubyte destinationId;  // ID do destinatario
+	var ubyte destinationId;   // ID do destinatario
 	var short  temperature;    // Temperatura lida
 end
 
@@ -30,7 +30,7 @@ pktype queryMsg from radioMsg with
 	var ubyte  hops;     // Hops dessa mensagem
 	var ubyte  nextHop;  // Vizinho alvo
 	var ubyte  eventId;  // ID do evento desejado
-	var ubyte origin;   // ID do remetente
+	var ubyte origin;    // ID do remetente
 end
 
 pktype helloMsg from radioMsg with // Nao tem payload
@@ -65,11 +65,11 @@ var ubyte ourId = getNodeId();
 var ubyte[8] neighbors;
 var ubyte neighborCount = 0;
 
-var ubyte[MAX_EVENTS] eventHop;     // EventHop[event_id] = proximo hop (node_id)
+var ubyte[MAX_EVENTS] eventHop;      // EventHop[event_id] = proximo hop (node_id)
 var ubyte[MAX_EVENTS] eventDistance; // Numero de hops na rota
 
 var ubyte[MAX_ROUTES] nodeId;       // Nos conhecidos (ids)
-var ubyte[MAX_ROUTES] nodeHop;     // Node_id = nodeId[i]; hop = nodeHop[i]
+var ubyte[MAX_ROUTES] nodeHop;      // Node_id = nodeId[i]; hop = nodeHop[i]
 var ubyte[MAX_ROUTES] nodeDistance; // Numero de hops na rota
 var ubyte nodeCount = 0;
 
@@ -171,6 +171,7 @@ with // -------- QUERY --------
 				mt.destinationId = m.origin;
 				mt.eventId = 1;
 				mt.source = ourId;
+				mt.nextHop = m.source;
 				qPut(mt);
 			else
 				if m.hops < TTL then
@@ -187,32 +188,32 @@ with // -------- QUERY --------
 		end
 	end
 
-//with // -------- TEMPERATURE --------
-//	loop do
-//		var tempMsg m = await RECEIVE(TYPE_TEMPERATURE);
-//		if m.hops < TTL and m.nextHop == ourId then
-//			// TODO configurar ID pra nos diferentes
-//			//if m.destinationId == ourId and m.temperature > 500 then
-//			if m.destinationId == ourId then
-//				emit LED1(ON);
-//			else
-//				// Tem que existir uma rota conhecida
-//				var byte found;
-//				SEARCH(nodeId, nodeCount, m.destinationId, found)
-//				//if found == -1 then
-//				//	// Nao deveria ocorrer
-//				//	loop do
-//				//		emit LED1(TOGGLE);
-//				//		await 1s;
-//				//	end
-//				//end
-//				m.nextHop = nodeHop[found];
-//				m.hops = m.hops + 1;
-//				qPut(m);
-//			end
-//		end
-//	end
-//
+with // -------- TEMPERATURE --------
+	loop do
+		var tempMsg m = await RECEIVE(TYPE_TEMPERATURE);
+		if m.hops < TTL and m.nextHop == ourId then
+			// TODO configurar ID pra nos diferentes
+			//if m.destinationId == ourId and m.temperature > 500 then
+			if m.destinationId == ourId then
+				emit LED1(ON);
+			else
+				// Tem que existir uma rota conhecida
+				var byte found;
+				SEARCH(nodeId, nodeCount, m.destinationId, found)
+				//if found == -1 then
+				//	// Nao deveria ocorrer
+				//	loop do
+				//		emit LED1(TOGGLE);
+				//		await 1s;
+				//	end
+				//end
+				m.nextHop = nodeHop[found];
+				m.hops = m.hops + 1;
+				qPut(m);
+			end
+		end
+	end
+
 with // -------- FILA --------
 	loop do
 		await Q_READY;
