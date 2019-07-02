@@ -3,9 +3,9 @@
 #define TTL 50             // Time to leave
 #define HOP_INVALID 255    // Codigo de no invalido (posicao vazia)
 #define EVENT_INVALID 255  // Codigo de evento invalido (posicao vazia)
-#define MAX_DISTANCE 255   // Tamanho maximo de uma rota
+#define MAX_DISTANCE 254   // Tamanho maximo de uma rota
 #define MAX_ROUTES 10      // Tamanho da tabela de rotas (inclui vizinhos)
-#define MAX_EVENTS 5       // Quantidade maxima de ids de eventos
+#define MAX_EVENTS 2       // Quantidade maxima de ids de eventos
 
 #define TYPE_HELLO       1
 #define TYPE_AGENT       2
@@ -16,7 +16,7 @@ pktype tempMsg from radioMsg with
 	var ubyte  hops;           // Hops dessa mensagem
 	var ubyte  nextHop;        // Vizinho alvo
 	var ubyte  eventId;        // ID do evento
-	var ushort destinationId;  // ID do destinatario
+	var ubyte destinationId;  // ID do destinatario
 	var short  temperature;    // Temperatura lida
 end
 
@@ -30,7 +30,7 @@ pktype queryMsg from radioMsg with
 	var ubyte  hops;     // Hops dessa mensagem
 	var ubyte  nextHop;  // Vizinho alvo
 	var ubyte  eventId;  // ID do evento desejado
-	var ushort origin;   // ID do remetente
+	var ubyte origin;   // ID do remetente
 end
 
 pktype helloMsg from radioMsg with // Nao tem payload
@@ -41,7 +41,6 @@ end
 	loop search_i, (count) do          \
 		if vec[search_i] == value then \
 			res = search_i;            \
-			break;                     \
 		end                            \
 	end
 
@@ -50,31 +49,31 @@ end
 		vec[fill_i] = value;    \
 	end
 
-#define AGENT_MERGE_EVENTS(m)                            \
-	loop i, MAX_EVENTS do                                \
-		if m.eventDistance[i] < eventDistance[i] then    \
-			eventDistance[i] = m.eventDistance[i];       \
-			eventHop[i] = m.source;                      \
-		else                                             \
-			m.eventDistance[i] = eventDistance[i];       \
-		end                                              \
-		m.eventDistance[i] = m.eventDistance[i] + 1;     \
+#define AGENT_MERGE_EVENTS(m)                                \
+	loop i, MAX_EVENTS do                                    \
+		if m.eventDistance[i] < eventDistance[i] then        \
+			eventDistance[i] = m.eventDistance[i];           \
+			eventHop[i] = m.source;                          \
+		else                                                 \
+			m.eventDistance[i] = eventDistance[i];           \
+		end                                                  \
+		/* Previne overflow */                               \
+		m.eventDistance[i] = (m.eventDistance[i] + 1) & 254; \
 	end
 
-
-var ushort ourId = getNodeId();
-var ushort[8] neighbors;
+var ubyte ourId = getNodeId();
+var ubyte[8] neighbors;
 var ubyte neighborCount = 0;
 
-var ushort[MAX_EVENTS] eventHop;     // EventHop[event_id] = proximo hop (node_id)
+var ubyte[MAX_EVENTS] eventHop;     // EventHop[event_id] = proximo hop (node_id)
 var ubyte[MAX_EVENTS] eventDistance; // Numero de hops na rota
 
 var ubyte[MAX_ROUTES] nodeId;       // Nos conhecidos (ids)
-var ushort[MAX_ROUTES] nodeHop;     // Node_id = nodeId[i]; hop = nodeHop[i]
+var ubyte[MAX_ROUTES] nodeHop;     // Node_id = nodeId[i]; hop = nodeHop[i]
 var ubyte[MAX_ROUTES] nodeDistance; // Numero de hops na rota
 var ubyte nodeCount = 0;
 
-var ushort sendDelay = (ourId % 5) + 1; // Delay para evitar que todos mandem ao mesmo tempo
+var ubyte sendDelay = (ourId % 5) + 1; // Delay para evitar que todos mandem ao mesmo tempo
 
 par do // -------- INIT --------
 	emit LEDS(0); // DEBUG
@@ -147,25 +146,23 @@ with // -------- QUERY --------
 		var tempMsg mt;
 
 		// Adiciona / atualiza rota para origem
-		// TODO testar
 		m.hops = m.hops + 1;
 		var byte found;
 		SEARCH(nodeId, nodeCount, m.origin, found)
-		if found == -1 then
-			found = nodeCount;
-			nodeCount = nodeCount + 1;
-			emit LED1(ON);
-		end
-		if nodeDistance[found] > m.hops then
-			nodeId[found] = m.origin;
-			nodeHop[found] = m.source;
-			nodeDistance[found] = m.hops;
-		end
+//		if found == -1 then
+//			found = nodeCount;
+//			nodeCount = nodeCount + 1;
+//			emit LED1(ON);
+//		end
+//		if nodeDistance[found] > m.hops then
+//			nodeId[found] = m.origin;
+//			nodeHop[found] = m.source;
+//			nodeDistance[found] = m.hops;
+//		end
 
 		if m.nextHop == ourId then
-			//if m.eventId == 1 and ourId == 11 then // TODO configurar ID pra nos diferentes
-			if ourId == 11 then // TODO configurar ID pra nos diferentes
-				emit LED2(ON);
+			if m.eventId == 1 and ourId == 11 then // TODO configurar ID pra nos diferentes
+				emit LED0(ON);
 				emit REQ_TEMP;
 				mt.temperature = await TEMP;
 				mt.hops = 0;
@@ -183,8 +180,6 @@ with // -------- QUERY --------
 					if m.nextHop == EVENT_INVALID then
 						// TODO nao mandar pra quem nos mandou
 						m.nextHop = neighbors[random() % neighborCount];
-					else
-						emit LED0(ON);
 					end
 					qPut(m);
 				end
@@ -214,7 +209,6 @@ with // -------- QUERY --------
 //				m.nextHop = nodeHop[found];
 //				m.hops = m.hops + 1;
 //				qPut(m);
-//				emit LED2(ON);
 //			end
 //		end
 //	end
@@ -236,26 +230,6 @@ with // -------- FILA --------
 		end
 	end
 
-/*
-with // -------- TESTE DA FILA --------
-	if ourId == 11 then
-		await 1500ms;
-		var queryMsg m;
-		m.source = ourId;
-		m.target = BROADCAST;
-		m.type = TYPE_QUERY;
-		m.origin = 42;
-		qPut(m);
-	else
-		var queryMsg m;
-		m = await RECEIVE;
-		if m.origin == 42 then
-			emit LED1(ON);
-		end
-	end
-	await FOREVER;
-*/
-
 with // -------- GERA EVENTOS --------
 	var ubyte above_temp = FALSE;
 	var ubyte above_photo = FALSE;
@@ -268,10 +242,10 @@ with // -------- GERA EVENTOS --------
 			m.source = ourId;
 			m.target = BROADCAST;
 			m.type = TYPE_AGENT;
-			FILL(m.eventDistance, MAX_EVENTS, EVENT_INVALID)
 			m.hops = 0;
 			m.nextHop = neighbors[random() % neighborCount];
-			m.eventDistance[1] = 0;
+			FILL(m.eventDistance, MAX_EVENTS, EVENT_INVALID)
+			m.eventDistance[1] = 1;
 			qPut(m);
 		end
 		if temp <= 500 then
@@ -298,5 +272,4 @@ with // -------- GERA EVENTOS --------
 		end
 		await 1s;
 	end
-	//await FOREVER;
 end
