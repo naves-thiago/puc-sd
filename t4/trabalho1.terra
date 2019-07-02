@@ -1,8 +1,8 @@
 #include "/home/terra/TerraNG/terra/TerraNet.defs"
 
 #define TTL 50             // Time to leave
-#define HOP_INVALID 255    // Codigo de no invalido (posicao vazia)
-#define EVENT_INVALID 255  // Codigo de evento invalido (posicao vazia)
+#define HOP_INVALID 254    // Codigo de no invalido (posicao vazia)
+#define EVENT_INVALID 254  // Codigo de evento invalido (posicao vazia)
 #define MAX_DISTANCE 254   // Tamanho maximo de uma rota
 #define MAX_ROUTES 10      // Tamanho da tabela de rotas (inclui vizinhos)
 #define MAX_EVENTS 2       // Quantidade maxima de ids de eventos
@@ -27,10 +27,10 @@ pktype agentMsg from radioMsg with
 end
 
 pktype queryMsg from radioMsg with
-	var ubyte  hops;     // Hops dessa mensagem
-	var ubyte  nextHop;  // Vizinho alvo
-	var ubyte  eventId;  // ID do evento desejado
-	var ubyte origin;    // ID do remetente
+	var ubyte hops;     // Hops dessa mensagem
+	var ubyte nextHop;  // Vizinho alvo
+	var ubyte eventId;  // ID do evento desejado
+	var ubyte origin;   // ID do remetente
 end
 
 pktype helloMsg from radioMsg with // Nao tem payload
@@ -58,7 +58,10 @@ end
 			m.eventDistance[i] = eventDistance[i];           \
 		end                                                  \
 		/* Previne overflow */                               \
-		m.eventDistance[i] = (m.eventDistance[i] + 1) & 254; \
+		if m.eventDistance[i] < MAX_DISTANCE then            \
+			m.eventDistance[i] = m.eventDistance[i] + 1;     \
+		end                                                  \
+/*		m.eventDistance[i] = ((m.eventDistance[i] + 1) & 254); */ \
 	end
 
 var ubyte ourId = getNodeId();
@@ -75,6 +78,9 @@ var ubyte nodeCount = 0;
 
 var ubyte sendDelay = (ourId % 5) + 1; // Delay para evitar que todos mandem ao mesmo tempo
 
+var byte found;
+var helloMsg msgHello;
+
 par do // -------- INIT --------
 //	emit LEDS(0); // DEBUG
 	await (sendDelay)s;
@@ -85,7 +91,6 @@ par do // -------- INIT --------
 	FILL(nodeDistance, MAX_ROUTES, MAX_DISTANCE)
 	qClear();
 
-	var helloMsg msgHello;
 	msgHello.type = TYPE_HELLO;
 	msgHello.target = BROADCAST;
 	msgHello.source = ourId;
@@ -95,14 +100,14 @@ par do // -------- INIT --------
 
 with // -------- HELLO --------
 	loop do
-		var helloMsg m = await RECEIVE(TYPE_HELLO);
-		var byte found;
-		SEARCH(neighbors, neighborCount, m.source, found)
+		msgHello = await RECEIVE(TYPE_HELLO);
+		//var byte found;
+		SEARCH(neighbors, neighborCount, msgHello.source, found)
 		if found == -1 then
-			neighbors[neighborCount] = m.source;
+			neighbors[neighborCount] = msgHello.source;
 			neighborCount = neighborCount + 1;
-			nodeId[nodeCount] = m.source;
-			nodeHop[nodeCount] = m.source;
+			nodeId[nodeCount] = msgHello.source;
+			nodeHop[nodeCount] = msgHello.source;
 			nodeDistance[nodeCount] = 1;
 			nodeCount = nodeCount + 1;
 		end
@@ -147,13 +152,19 @@ with // -------- QUERY --------
 
 		// Adiciona / atualiza rota para origem
 		m.hops = m.hops + 1;
-		var byte found;
+		//var byte found;
 		SEARCH(nodeId, nodeCount, m.origin, found)
-//		if found == -1 then
+		if found == -1 then
+			nodeId[nodeCount] = m.origin;
+			nodeHop[nodeCount] = m.source;
+			nodeDistance[nodeCount] = m.hops;
 //			found = nodeCount;
-//			nodeCount = nodeCount + 1;
+			if nodeCount < MAX_ROUTES then
+				nodeCount = nodeCount + 1;
+			end
+
 //			emit LED1(ON);
-//		end
+		end
 //		if nodeDistance[found] > m.hops then
 //			nodeId[found] = m.origin;
 //			nodeHop[found] = m.source;
@@ -161,7 +172,8 @@ with // -------- QUERY --------
 //		end
 
 		if m.nextHop == ourId then
-			if m.eventId == 1 and ourId == 11 then // TODO configurar ID pra nos diferentes
+			//if m.eventId == 1 and ourId == 11 then // TODO configurar ID pra nos diferentes
+			if ourId == 11 then // TODO configurar ID pra nos diferentes
 				//emit LED0(ON);
 				emit REQ_TEMP;
 				mt.temperature = await TEMP;
@@ -177,6 +189,7 @@ with // -------- QUERY --------
 				if m.hops < TTL then
 					// Apenas repassa
 					m.nextHop = eventHop[m.eventId];
+					m.nextHop = eventHop[1];
 					m.source = ourId;
 					if m.nextHop == EVENT_INVALID then
 						// TODO nao mandar pra quem nos mandou
@@ -195,21 +208,22 @@ with // -------- TEMPERATURE --------
 			// TODO configurar ID pra nos diferentes
 			//if m.destinationId == ourId and m.temperature > 500 then
 			if m.destinationId == ourId then
-				if m.temperature > 500 then
-					emit LED1(ON);
-				end
+				//if m.temperature > 500 then
+				//	emit LED1(ON);
+				//end
 
-				if m.temperature < 300 then
-					emit LED2(ON);
-				end
+				//if m.temperature < 300 then
+				//	emit LED2(ON);
+				//end
 			else
 				// Tem que existir uma rota conhecida
-				var byte found;
+				//var byte found;
 				SEARCH(nodeId, nodeCount, m.destinationId, found)
 				//if found == -1 then
 				//	// Nao deveria ocorrer
 				//	loop do
 				//		emit LED1(TOGGLE);
+				//		emit LED0(ON);
 				//		await 1s;
 				//	end
 				//end
