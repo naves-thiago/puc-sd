@@ -76,7 +76,7 @@ var ubyte nodeCount = 0;
 var ubyte sendDelay = (ourId % 5) + 1; // Delay para evitar que todos mandem ao mesmo tempo
 
 par do // -------- INIT --------
-	emit LEDS(0); // DEBUG
+//	emit LEDS(0); // DEBUG
 	await (sendDelay)s;
 
 	FILL(eventHop, MAX_EVENTS, HOP_INVALID)
@@ -162,7 +162,7 @@ with // -------- QUERY --------
 
 		if m.nextHop == ourId then
 			if m.eventId == 1 and ourId == 11 then // TODO configurar ID pra nos diferentes
-				emit LED0(ON);
+				//emit LED0(ON);
 				emit REQ_TEMP;
 				mt.temperature = await TEMP;
 				mt.hops = 0;
@@ -195,7 +195,13 @@ with // -------- TEMPERATURE --------
 			// TODO configurar ID pra nos diferentes
 			//if m.destinationId == ourId and m.temperature > 500 then
 			if m.destinationId == ourId then
-				emit LED1(ON);
+				if m.temperature > 500 then
+					emit LED1(ON);
+				end
+
+				if m.temperature < 300 then
+					emit LED2(ON);
+				end
 			else
 				// Tem que existir uma rota conhecida
 				var byte found;
@@ -232,13 +238,13 @@ with // -------- FILA --------
 	end
 
 with // -------- GERA EVENTOS --------
-	var ubyte above_temp = FALSE;
-	var ubyte above_photo = FALSE;
+	var ubyte sent_temp = TRUE;
+	var ubyte above_photo = TRUE;
 	loop do
 		emit REQ_TEMP;
 		var ushort temp = await TEMP;
-		if temp > 500 and not above_temp then
-			above_temp = TRUE;
+		if (temp > 500 or temp < 300) and sent_temp then
+			sent_temp = FALSE;
 			var agentMsg m;
 			m.source = ourId;
 			m.target = BROADCAST;
@@ -249,14 +255,14 @@ with // -------- GERA EVENTOS --------
 			m.eventDistance[1] = 1;
 			qPut(m);
 		end
-		if temp <= 500 then
-			above_temp = FALSE;
+		if (temp <= 500 and temp >= 300) then
+			sent_temp = TRUE;
 		end
 
 		emit REQ_PHOTO;
 		var ushort photo = await PHOTO;
-		if photo > 400 and not above_photo then
-			above_photo = TRUE;
+		if photo > 400 and above_photo then
+			above_photo = FALSE;
 			var queryMsg m;
 			m.source = ourId;
 			m.origin = ourId;
@@ -269,7 +275,7 @@ with // -------- GERA EVENTOS --------
 		end
 
 		if photo <= 400 then
-			above_photo = FALSE;
+			above_photo = TRUE;
 		end
 		await 1s;
 	end
